@@ -1,0 +1,85 @@
+# fwe — a firmware engineer skill for Claude Code
+
+`/fwe` is a [Claude Code](https://claude.com/claude-code) skill that writes,
+builds and tests the firmware for a board designed with
+[hwde](https://github.com/ihsan-sa/hwde). You give it a task in your own
+words and a board, and one router (`task_router.py`) picks the step: set up
+the toolchain, derive the pin map from the board's netlist, scaffold a
+firmware project, write a stage (bring-up, six-step, FOC), build with warnings
+as errors, run the host unit tests, boot it in a simulator, or review it.
+The board's netlist decides every pin, so nobody types a pin number. STM32G4
+is the first MCU family it supports.
+
+```
+/fwe build it with warnings as errors bldc-motor-driver
+```
+
+## Install
+
+The skill is the `skill/` directory. Link it (or copy it) into your Claude
+Code skills directory under the name `fwe`:
+
+```sh
+git clone https://github.com/ihsan-sa/fwe.git
+ln -s "$PWD/fwe/skill" ~/.claude/skills/fwe
+```
+
+To use it in one project only, link it into that project's
+`.claude/skills/fwe` instead.
+
+## Boards
+
+`/fwe` works on hwde board workspaces. It finds them under
+`HWDE_BOARDS_ROOT`, which defaults to `~/dev/boards`. A board is named by a
+path or by its directory name under that root, and a bare name such as
+`bldc-motor-driver` also finds a numbered workspace like
+`PCB-0018-A_bldc-motor-driver`. The firmware lives in the board's workspace
+as `firmware/`, next to the `kicad/` export it reads, and `/fwe` never edits
+the board's KiCad files.
+
+## Toolchain
+
+The scripts need Python 3.10 or later and nothing outside its standard
+library. The host unit tests need a host C compiler (`gcc`, `clang` or `$CC`).
+
+The cross toolchain is pinned in `skill/reference/toolchain.lock.json`, and
+`/fwe setup` (or `python3 skill/scripts/fwe_setup.py`) installs it into
+`~/.local/fwe-tools`, or `FWE_TOOLS_DIR` when that is set. It needs no root.
+Each download is checked against its pinned sha256, and the pinned builds
+are the Linux x64 ones. The pinned set is:
+
+- xPack arm-none-eabi-gcc 15.2.1, CMake 3.31 and Ninja 1.13
+- xPack QEMU Arm 9.2 and Renode 1.17, for the simulator smoke test
+- CMSIS Core 5.9.0 and the STM32G4 CMSIS device headers v1.2.6
+
+## Tests
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest tests
+```
+
+Most tests build their own small netlist. The few that need a real board
+skip with the reason when the boards repo isn't at `HWDE_BOARDS_ROOT`, and
+the cross-build and simulator tests skip when the pinned toolchain isn't
+installed.
+
+## Layout
+
+- `skill/SKILL.md` is the playbook Claude reads, and `skill/scripts/` holds
+  the router and one script per step.
+- `skill/reference/` has the design notes, one recipe per step, the MCU pin
+  tables and the toolchain lock.
+- `skill/templates/` is the firmware project a scaffold starts from.
+- `tests/` holds the pytest suite.
+
+## Credit
+
+`/fwe` started inside hwde. Its netlist reader returns the same shape as
+hwde's `simlib.parse_netlist`, and the boards root follows hwde's
+`env.boards_root`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

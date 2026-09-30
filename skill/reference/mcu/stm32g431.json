@@ -1,0 +1,541 @@
+{
+ "part": "STM32G431CBT6",
+ "package": "LQFP48",
+ "source": "ST datasheet DS12589 Rev 2 (LCSC C529355.pdf), tables 12 (pin definition) and 13 (alternate function); AF names with a slash (SPI3_NSS/I2S3_WS) are split into one entry each; PA13/PA14/PB3 debug names split at the dash",
+ "pins": {
+  "PC13": {
+   "lqfp48": 2,
+   "af": {
+    "TIM1_BKIN": 2,
+    "TIM1_CH1N": 4,
+    "TIM8_CH4N": 6
+   },
+   "analog": []
+  },
+  "PC14": {
+   "lqfp48": 3,
+   "af": {},
+   "analog": []
+  },
+  "PC15": {
+   "lqfp48": 4,
+   "af": {},
+   "analog": []
+  },
+  "PF0": {
+   "lqfp48": 5,
+   "af": {
+    "I2C2_SDA": 4,
+    "SPI2_NSS": 5,
+    "I2S2_WS": 5,
+    "TIM1_CH3N": 6
+   },
+   "analog": [
+    "ADC1_IN10"
+   ]
+  },
+  "PF1": {
+   "lqfp48": 6,
+   "af": {
+    "SPI2_SCK": 5,
+    "I2S2_CK": 5
+   },
+   "analog": [
+    "ADC2_IN10",
+    "COMP3_INM"
+   ]
+  },
+  "PG10": {
+   "lqfp48": 7,
+   "af": {
+    "MCO": 0
+   },
+   "analog": []
+  },
+  "PA0": {
+   "lqfp48": 8,
+   "af": {
+    "TIM2_CH1": 1,
+    "USART2_CTS": 7,
+    "COMP1_OUT": 8,
+    "TIM8_BKIN": 9,
+    "TIM8_ETR": 10,
+    "TIM2_ETR": 14
+   },
+   "analog": [
+    "ADC12_IN1",
+    "COMP1_INM",
+    "COMP3_INP"
+   ]
+  },
+  "PA1": {
+   "lqfp48": 9,
+   "af": {
+    "RTC_REFIN": 0,
+    "TIM2_CH2": 1,
+    "USART2_RTS_DE": 7,
+    "TIM15_CH1N": 9
+   },
+   "analog": [
+    "ADC12_IN2",
+    "COMP1_INP",
+    "OPAMP1_VINP",
+    "OPAMP3_VINP"
+   ]
+  },
+  "PA2": {
+   "lqfp48": 10,
+   "af": {
+    "TIM2_CH3": 1,
+    "USART2_TX": 7,
+    "COMP2_OUT": 8,
+    "TIM15_CH1": 9,
+    "LPUART1_TX": 12,
+    "UCPD1_FRSTX": 14
+   },
+   "analog": [
+    "ADC1_IN3",
+    "COMP2_INM",
+    "OPAMP1_VOUT"
+   ]
+  },
+  "PA3": {
+   "lqfp48": 11,
+   "af": {
+    "TIM2_CH4": 1,
+    "SAI1_CK1": 3,
+    "USART2_RX": 7,
+    "TIM15_CH2": 9,
+    "LPUART1_RX": 12,
+    "SAI1_MCLK_A": 13
+   },
+   "analog": [
+    "ADC1_IN4",
+    "COMP2_INP",
+    "OPAMP1_VINM",
+    "OPAMP1_VINP"
+   ]
+  },
+  "PA4": {
+   "lqfp48": 12,
+   "af": {
+    "TIM3_CH2": 2,
+    "SPI1_NSS": 5,
+    "SPI3_NSS": 6,
+    "I2S3_WS": 6,
+    "USART2_CK": 7,
+    "SAI1_FS_B": 13
+   },
+   "analog": [
+    "ADC2_IN17",
+    "DAC1_OUT1",
+    "COMP1_INM"
+   ]
+  },
+  "PA5": {
+   "lqfp48": 13,
+   "af": {
+    "TIM2_CH1": 1,
+    "TIM2_ETR": 2,
+    "SPI1_SCK": 5,
+    "UCPD1_FRSTX": 14
+   },
+   "analog": [
+    "ADC2_IN13",
+    "DAC1_OUT2",
+    "COMP2_INM",
+    "OPAMP2_VINM"
+   ]
+  },
+  "PA6": {
+   "lqfp48": 14,
+   "af": {
+    "TIM16_CH1": 1,
+    "TIM3_CH1": 2,
+    "TIM8_BKIN": 4,
+    "SPI1_MISO": 5,
+    "TIM1_BKIN": 6,
+    "COMP1_OUT": 8,
+    "LPUART1_CTS": 12
+   },
+   "analog": [
+    "ADC2_IN3",
+    "OPAMP2_VOUT"
+   ]
+  },
+  "PA7": {
+   "lqfp48": 15,
+   "af": {
+    "TIM17_CH1": 1,
+    "TIM3_CH2": 2,
+    "TIM8_CH1N": 4,
+    "SPI1_MOSI": 5,
+    "TIM1_CH1N": 6,
+    "COMP2_OUT": 8,
+    "UCPD1_FRSTX": 14
+   },
+   "analog": [
+    "ADC2_IN4",
+    "COMP2_INP",
+    "OPAMP1_VINP",
+    "OPAMP2_VINP"
+   ]
+  },
+  "PB0": {
+   "lqfp48": 16,
+   "af": {
+    "TIM3_CH3": 2,
+    "TIM8_CH2N": 4,
+    "TIM1_CH2N": 6,
+    "UCPD1_FRSTX": 14
+   },
+   "analog": [
+    "ADC1_IN15",
+    "COMP4_INP",
+    "OPAMP2_VINP",
+    "OPAMP3_VINP"
+   ]
+  },
+  "PB1": {
+   "lqfp48": 17,
+   "af": {
+    "TIM3_CH4": 2,
+    "TIM8_CH3N": 4,
+    "TIM1_CH3N": 6,
+    "COMP4_OUT": 8,
+    "LPUART1_RTS_DE": 12
+   },
+   "analog": [
+    "ADC1_IN12",
+    "COMP1_INP",
+    "OPAMP3_VOUT"
+   ]
+  },
+  "PB2": {
+   "lqfp48": 18,
+   "af": {
+    "RTC_OUT2": 0,
+    "LPTIM1_OUT": 1,
+    "I2C3_SMBA": 4
+   },
+   "analog": [
+    "ADC2_IN12",
+    "COMP4_INM",
+    "OPAMP3_VINM"
+   ]
+  },
+  "PB10": {
+   "lqfp48": 22,
+   "af": {
+    "TIM2_CH3": 1,
+    "USART3_TX": 7,
+    "LPUART1_RX": 8,
+    "TIM1_BKIN": 12,
+    "SAI1_SCK_A": 14
+   },
+   "analog": [
+    "OPAMP3_VINM"
+   ]
+  },
+  "PB11": {
+   "lqfp48": 25,
+   "af": {
+    "TIM2_CH4": 1,
+    "USART3_RX": 7,
+    "LPUART1_TX": 8
+   },
+   "analog": [
+    "ADC12_IN14"
+   ]
+  },
+  "PB12": {
+   "lqfp48": 26,
+   "af": {
+    "I2C2_SMBA": 4,
+    "SPI2_NSS": 5,
+    "I2S2_WS": 5,
+    "TIM1_BKIN": 6,
+    "USART3_CK": 7,
+    "LPUART1_RTS_DE": 8
+   },
+   "analog": [
+    "ADC1_IN11"
+   ]
+  },
+  "PB13": {
+   "lqfp48": 27,
+   "af": {
+    "SPI2_SCK": 5,
+    "I2S2_CK": 5,
+    "TIM1_CH1N": 6,
+    "USART3_CTS": 7,
+    "LPUART1_CTS": 8
+   },
+   "analog": [
+    "OPAMP3_VINP"
+   ]
+  },
+  "PB14": {
+   "lqfp48": 28,
+   "af": {
+    "TIM15_CH1": 1,
+    "SPI2_MISO": 5,
+    "TIM1_CH2N": 6,
+    "USART3_RTS_DE": 7,
+    "COMP4_OUT": 8
+   },
+   "analog": [
+    "ADC1_IN5",
+    "OPAMP2_VINP"
+   ]
+  },
+  "PB15": {
+   "lqfp48": 29,
+   "af": {
+    "RTC_REFIN": 0,
+    "TIM15_CH2": 1,
+    "TIM15_CH1N": 2,
+    "COMP3_OUT": 3,
+    "TIM1_CH3N": 4,
+    "SPI2_MOSI": 5,
+    "I2S2_SD": 5
+   },
+   "analog": [
+    "ADC2_IN15"
+   ]
+  },
+  "PA8": {
+   "lqfp48": 30,
+   "af": {
+    "MCO": 0,
+    "I2C3_SCL": 2,
+    "I2C2_SDA": 4,
+    "I2S2_MCK": 5,
+    "TIM1_CH1": 6,
+    "USART1_CK": 7,
+    "TIM4_ETR": 10,
+    "SAI1_CK2": 12,
+    "SAI1_SCK_A": 14
+   },
+   "analog": []
+  },
+  "PA9": {
+   "lqfp48": 31,
+   "af": {
+    "I2C3_SMBA": 2,
+    "I2C2_SCL": 4,
+    "I2S3_MCK": 5,
+    "TIM1_CH2": 6,
+    "USART1_TX": 7,
+    "TIM15_BKIN": 9,
+    "TIM2_CH3": 10,
+    "SAI1_FS_A": 14
+   },
+   "analog": []
+  },
+  "PA10": {
+   "lqfp48": 32,
+   "af": {
+    "TIM17_BKIN": 1,
+    "USB_CRS_SYNC": 3,
+    "I2C2_SMBA": 4,
+    "SPI2_MISO": 5,
+    "TIM1_CH3": 6,
+    "USART1_RX": 7,
+    "TIM2_CH4": 10,
+    "TIM8_BKIN": 11,
+    "SAI1_D1": 12,
+    "SAI1_SD_A": 14
+   },
+   "analog": []
+  },
+  "PA11": {
+   "lqfp48": 33,
+   "af": {
+    "SPI2_MOSI": 5,
+    "I2S2_SD": 5,
+    "TIM1_CH1N": 6,
+    "USART1_CTS": 7,
+    "COMP1_OUT": 8,
+    "FDCAN1_RX": 9,
+    "TIM4_CH1": 10,
+    "TIM1_CH4": 11,
+    "TIM1_BKIN2": 12
+   },
+   "analog": []
+  },
+  "PA12": {
+   "lqfp48": 34,
+   "af": {
+    "TIM16_CH1": 1,
+    "I2SCKIN": 5,
+    "TIM1_CH2N": 6,
+    "USART1_RTS_DE": 7,
+    "COMP2_OUT": 8,
+    "FDCAN1_TX": 9,
+    "TIM4_CH2": 10,
+    "TIM1_ETR": 11
+   },
+   "analog": []
+  },
+  "PA13": {
+   "lqfp48": 37,
+   "af": {
+    "SWDIO": 0,
+    "JTMS": 0,
+    "TIM16_CH1N": 1,
+    "I2C1_SCL": 4,
+    "IR_OUT": 5,
+    "USART3_CTS": 7,
+    "TIM4_CH3": 10,
+    "SAI1_SD_B": 13
+   },
+   "analog": []
+  },
+  "PA14": {
+   "lqfp48": 38,
+   "af": {
+    "SWCLK": 0,
+    "JTCK": 0,
+    "LPTIM1_OUT": 1,
+    "I2C1_SDA": 4,
+    "TIM8_CH2": 5,
+    "TIM1_BKIN": 6,
+    "USART2_TX": 7,
+    "SAI1_FS_B": 13
+   },
+   "analog": []
+  },
+  "PA15": {
+   "lqfp48": 39,
+   "af": {
+    "JTDI": 0,
+    "TIM2_CH1": 1,
+    "TIM8_CH1": 2,
+    "I2C1_SCL": 4,
+    "SPI1_NSS": 5,
+    "SPI3_NSS": 6,
+    "I2S3_WS": 6,
+    "USART2_RX": 7,
+    "UART4_RTS_DE": 8,
+    "TIM1_BKIN": 9,
+    "TIM2_ETR": 14
+   },
+   "analog": []
+  },
+  "PB3": {
+   "lqfp48": 40,
+   "af": {
+    "JTDO": 0,
+    "TRACESWO": 0,
+    "TIM2_CH2": 1,
+    "TIM4_ETR": 2,
+    "USB_CRS_SYNC": 3,
+    "TIM8_CH1N": 4,
+    "SPI1_SCK": 5,
+    "SPI3_SCK": 6,
+    "I2S3_CK": 6,
+    "USART2_TX": 7,
+    "TIM3_ETR": 10,
+    "SAI1_SCK_B": 14
+   },
+   "analog": []
+  },
+  "PB4": {
+   "lqfp48": 41,
+   "af": {
+    "JTRST": 0,
+    "TIM16_CH1": 1,
+    "TIM3_CH1": 2,
+    "TIM8_CH2N": 4,
+    "SPI1_MISO": 5,
+    "SPI3_MISO": 6,
+    "USART2_RX": 7,
+    "TIM17_BKIN": 10,
+    "SAI1_MCLK_B": 14
+   },
+   "analog": []
+  },
+  "PB5": {
+   "lqfp48": 42,
+   "af": {
+    "TIM16_BKIN": 1,
+    "TIM3_CH2": 2,
+    "TIM8_CH3N": 3,
+    "I2C1_SMBA": 4,
+    "SPI1_MOSI": 5,
+    "SPI3_MOSI": 6,
+    "I2S3_SD": 6,
+    "USART2_CK": 7,
+    "I2C3_SDA": 8,
+    "TIM17_CH1": 10,
+    "LPTIM1_IN1": 11,
+    "SAI1_SD_B": 12
+   },
+   "analog": []
+  },
+  "PB6": {
+   "lqfp48": 43,
+   "af": {
+    "TIM16_CH1N": 1,
+    "TIM4_CH1": 2,
+    "TIM8_CH1": 5,
+    "TIM8_ETR": 6,
+    "USART1_TX": 7,
+    "COMP4_OUT": 8,
+    "TIM8_BKIN2": 10,
+    "LPTIM1_ETR": 11,
+    "SAI1_FS_B": 14
+   },
+   "analog": []
+  },
+  "PB7": {
+   "lqfp48": 44,
+   "af": {
+    "TIM17_CH1N": 1,
+    "TIM4_CH2": 2,
+    "I2C1_SDA": 4,
+    "TIM8_BKIN": 5,
+    "USART1_RX": 7,
+    "COMP3_OUT": 8,
+    "TIM3_CH4": 10,
+    "LPTIM1_IN2": 11,
+    "UART4_CTS": 14
+   },
+   "analog": []
+  },
+  "PB8": {
+   "lqfp48": 45,
+   "af": {
+    "TIM16_CH1": 1,
+    "TIM4_CH3": 2,
+    "SAI1_CK1": 3,
+    "I2C1_SCL": 4,
+    "USART3_RX": 7,
+    "COMP1_OUT": 8,
+    "FDCAN1_RX": 9,
+    "TIM8_CH2": 10,
+    "TIM1_BKIN": 12,
+    "SAI1_MCLK_A": 14
+   },
+   "analog": []
+  },
+  "PB9": {
+   "lqfp48": 46,
+   "af": {
+    "TIM17_CH1": 1,
+    "TIM4_CH4": 2,
+    "SAI1_D2": 3,
+    "I2C1_SDA": 4,
+    "IR_OUT": 6,
+    "USART3_TX": 7,
+    "COMP2_OUT": 8,
+    "FDCAN1_TX": 9,
+    "TIM8_CH3": 10,
+    "TIM1_CH3N": 12,
+    "SAI1_FS_A": 14
+   },
+   "analog": []
+  }
+ }
+}
