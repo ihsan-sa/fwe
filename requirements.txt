@@ -1,0 +1,2 @@
+# The skill's scripts use only the Python standard library; this is for the tests.
+pytest>=7

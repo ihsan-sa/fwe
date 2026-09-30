@@ -1,0 +1,46 @@
+// g431.repl - STM32G431CB for a Renode smoke test: core, memory, NVIC and
+// USART1 are modelled; RCC and ADC1/2 are read-back stubs (rcc.py, adc.py:
+// every conversion done at once, mid-scale) and DAC3's status is
+// always ready (ready.py). Every other peripheral is unmodelled: its reads
+// return 0 and Renode logs the access. That is enough to boot to the console
+// banner and answer commands; it proves nothing about PWM, ADC or faults.
+// fw_sim.py replaces @SIMDIR@ with this directory's absolute path.
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x20000
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x8000
+
+ccmsram: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x2800
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 170000000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 170000000
+    IRQ -> nvic@37
+
+flash_regs: Memory.MappedMemory @ sysbus 0x40022000
+    size: 0x400
+
+rcc: Python.PythonPeripheral @ sysbus 0x40021000
+    size: 0x400
+    initable: true
+    filename: "@SIMDIR@/rcc.py"
+
+dac3_sr: Python.PythonPeripheral @ sysbus 0x50001034
+    size: 0x4
+    initable: false
+    filename: "@SIMDIR@/ready.py"
+
+adc12: Python.PythonPeripheral @ sysbus 0x50000000
+    size: 0x400
+    initable: true
+    filename: "@SIMDIR@/adc.py"
