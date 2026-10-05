@@ -201,16 +201,27 @@ def test_manifest_commands_take_a_stage_declaration_over_the_table(tmp_path):
         '    else if (streq(c, "six")) cmd_six(argc, argv);  '
         '/* fwe-cmd args="<duty 0..1> <fwd|rev> | stop" safe=no */\n'
         '    else if (streq(c, "hall")) cmd_hall();  /* fwe-cmd args="" safe=yes */\n'
-        '    else if (streq(c, "led")) cmd_led(argc, argv);  /* fwe-cmd args="<x>" safe=no */\n'
-        '    else if (streq(c, "spin")) cmd_spin(argc, argv);\n')
+        '    else if (streq(c, "led")) cmd_led(argc, argv);  /* fwe-cmd args="<x>" safe=no */\n')
     got = {c["name"]: (c["args"], c["safe"]) for c in fw_manifest.commands(tmp_path)}
     assert got == {
         "status": ("", True),                                 # table, undeclared
         "six": ("<duty 0..1> <fwd|rev> | stop", False),       # declared unsafe
         "hall": ("", True),                                   # declared read-only
         "led": ("<x>", False),                                # declaration beats the table
-        "spin": ("?", False),                                 # neither: unknown, unsafe
     }
+
+
+def test_manifest_refuses_a_command_with_no_declared_args(tmp_path):
+    # "fwe's manifest carries every command's arguments": a command in neither
+    # the declaration nor the table is an error, never args "?"
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "console.c").write_text(
+        '    if (streq(c, "status")) cmd_status();\n'
+        '    else if (streq(c, "spin")) cmd_spin(argc, argv);\n'
+        '    else if (streq(c, "hall")) cmd_hall();  /* fwe-cmd args="" safe=yes */\n')
+    with pytest.raises(fw_manifest.Undeclared, match=r"command\(s\) spin have no declared args"):
+        fw_manifest.commands(tmp_path)
 
 
 def test_motor_driver_boots_in_renode_and_answers(tmp_path):
