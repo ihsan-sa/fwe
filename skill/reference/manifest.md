@@ -12,8 +12,8 @@ the firmware answers, so a later stage's `spin` appears when its console
 handles it; `reply_fields` are the top-level keys of its `OK` object, read from
 the handler; `args` and `safe` come from a `/* fwe-cmd args="..." safe=yes|no */`
 comment on the command's dispatch line, which a stage writes for each command it
-adds, else from the script's table of the bringup commands, else `"?"` and
-unsafe), `safety` from
+adds, else from the script's table of the bringup commands; a command in
+neither is refused, so every command carries its arguments), `safety` from
 `config/fw_config.h` (`pwm_hz` is `PWM_FREQ_HZ`), `stage`/`version` from the build's CMake cache, and the
 sha256s from `build/`. `verified` records evidence, not a derivation:
 `host_tests` is whether fw_test.py passed when the manifest was written, `sim`

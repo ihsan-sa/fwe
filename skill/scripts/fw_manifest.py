@@ -5,7 +5,8 @@ The manifest (reference/manifest.md, schema fwe-manifest/1) is derived, never
 hand-written: connectors from the board's netlist, the command list from the
 console's dispatch in src/console.c (with each reply's top-level keys; a
 command's args and safe flag come from a `/* fwe-cmd args="..." safe=yes|no */`
-comment on its dispatch line, else from the KNOWN table, else "?" and unsafe),
+comment on its dispatch line, else from the KNOWN table; a command in neither
+is an error, so every command in the manifest carries its arguments),
 the safety limits from config/fw_config.h,
 the version and stage from the last build's CMake cache, and the artifacts'
 sha256 from firmware/build/. Run it after fw_build.py.
@@ -21,7 +22,8 @@ always false, because /fwe never touches a bench.
 
 JSON to stdout (or --out): {"ok", "path", "manifest"} or, with --check,
 {"ok", "stale": [keys that differ]}. Exit 0 written / up to date, 1 stale or
-missing (--check) or no build to describe, 2 error.
+missing (--check) or no build to describe, 2 error (including a console
+command with no declared args).
 """
 from __future__ import annotations
 
@@ -41,8 +43,8 @@ SCHEMA = "fwe-manifest/1"
 NAME = "fwe-manifest.json"
 # manifest.md: a command is `safe: false` when it can energise the bridge.
 # `arm` turns every low side on (bootstrap charge), `duty` drives the phases.
-# A command neither declared (fwe-cmd, below) nor in this table is listed as
-# unsafe until someone says so.
+# A command neither declared (fwe-cmd, below) nor in this table is refused
+# (Undeclared): /npie needs every command's arguments.
 KNOWN = {
     "version": ("", True), "status": ("", True), "selftest": ("", True),
     "adc": ("", True), "offsets": ("", True), "led": ("<status|fault> <on|off|auto>", True),
@@ -58,6 +60,10 @@ LIMITS = {"i_trip_a": "I_TRIP_A", "i_limit_a": "I_LIMIT_A", "vbus_ov_v": "VBUS_O
 
 class Missing(Exception):
     pass
+
+
+class Undeclared(Exception):
+    """A console command has neither a fwe-cmd declaration nor a KNOWN entry."""
 
 
 def sha256(p: Path) -> str:
@@ -105,9 +111,13 @@ def commands(fw: Path) -> list[dict]:
     found = DISPATCH.findall(src)
     if not found:
         raise Missing("src/console.c has no streq(c, \"...\") dispatch")
+    bare = [n for n, _, _, safe in found if not safe and n not in KNOWN]
+    if bare:
+        raise Undeclared(f"src/console.c: command(s) {', '.join(bare)} have no declared args; "
+                         'add /* fwe-cmd args="..." safe=yes|no */ to each dispatch line')
     out = []
     for n, f, args, safe in found:
-        known = (args, safe == "yes") if safe else KNOWN.get(n, ("?", False))
+        known = (args, safe == "yes") if safe else KNOWN[n]
         out.append({"name": n, "args": known[0], "reply": "OK {json} | ERR <code> <text>",
                     "reply_fields": reply_fields(src, f), "safe": known[1]})
     return out
@@ -190,7 +200,7 @@ def main(argv=None) -> int:
     except Missing as e:
         fwenv.emit({"ok": False, "error": str(e)}, a.out)
         return 1
-    except (pinmap.Error, pinmap.NetlistError, OSError, KeyError) as e:
+    except (Undeclared, pinmap.Error, pinmap.NetlistError, OSError, KeyError) as e:
         fwenv.emit({"ok": False, "error": str(e)}, a.out)
         return 2
     if a.check:

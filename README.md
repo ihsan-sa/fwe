@@ -55,10 +55,12 @@ are the Linux x64 ones. The pinned set is:
 ## Tests
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest tests
+make venv     # once: .venv with pytest
+make check    # the whole suite; the gate a change must pass
 ```
+
+`tests/golden/netlist/` holds a copy of hwde's golden netlist export and what
+hwde's reader makes of it, so a test holds fwe's copied reader to hwde's.
 
 Most tests build their own small netlist. The few that need a real board
 skip with the reason when the boards repo isn't at `HWDE_BOARDS_ROOT`, and
