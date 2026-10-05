@@ -1,0 +1,24 @@
+{
+  "schema": "fwe-gateware/1",
+  "design": "pwm8",
+  "f_rf_hz": 13560000,
+  "channels": 8,
+  "steps_per_period": 72,
+  "word_bits": 8,
+  "uart_baud": 115200,
+  "board": {
+    "handoff": "firmware/README.md",
+    "model": null,
+    "vendor": null,
+    "part": null,
+    "package": null,
+    "speed": null,
+    "ref_clk_hz": null,
+    "ref_clk_pin": null,
+    "pwm_pins": [],
+    "io_standard": null,
+    "uart_rx_pin": null,
+    "uart_tx_pin": null,
+    "loader": null
+  }
+}

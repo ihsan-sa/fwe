@@ -52,6 +52,21 @@ are the Linux x64 ones. The pinned set is:
 - xPack QEMU Arm 9.2 and Renode 1.17, for the simulator smoke test
 - CMSIS Core 5.9.0 and the STM32G4 CMSIS device headers v1.2.6
 
+## FPGA gateware
+
+`/fwe` also writes FPGA gateware, through the `fpga-*` verbs. The first
+design drives eight PWM outputs at 13.56 MHz with each channel's phase set
+in steps of about 1 ns, through the FPGA's output serialiser, and a UART
+register protocol sets phase and duty. The core and its testbench don't
+depend on the board: the serialiser primitive and the pins sit in
+`vendor/<family>/` and `gateware.json`. `skill/reference/fpga.md` has the
+protocol and the manifest /npie reads.
+
+Simulation and synthesis use chip-flow's
+`bin/eda` toolchain (Icarus, Verilator, Yosys, cocotb), the same one `/vde`
+uses, found at `CHIP_FLOW_HOME` (default `~/.claude/skills/chip-flow`).
+Place and route needs `nextpnr-ecp5` and `ecppack` on `PATH`.
+
 ## Tests
 
 ```sh
@@ -65,7 +80,8 @@ hwde's reader makes of it, so a test holds fwe's copied reader to hwde's.
 Most tests build their own small netlist. The few that need a real board
 skip with the reason when the boards repo isn't at `HWDE_BOARDS_ROOT`, and
 the cross-build and simulator tests skip when the pinned toolchain isn't
-installed.
+installed. The FPGA bench and synthesis tests skip when chip-flow's `eda`
+isn't there.
 
 ## Layout
 

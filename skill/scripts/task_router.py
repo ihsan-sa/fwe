@@ -5,6 +5,9 @@ VERBS below is the whole table: each verb has the regexes that pick it, a
 one-line summary, the steps (script commands bound to the workspace, or
 `agent:` steps the session does itself) and its recipe doc
 reference/recipes/<verb>.md, which the session reads before executing.
+A task that names an FPGA (fpga, gateware, verilog, rtl, bitstream, serdes,
+yosys, nextpnr, cocotb) matches only the `fpga-*` verbs; any other task
+matches only the MCU verbs.
 
   task_router.py --task "build the firmware" --workspace PCB-0018-A_bldc-motor-driver
   task_router.py --verb test --workspace <board>
@@ -80,6 +83,46 @@ VERBS = {
                   "fw_test.py --workspace {ws}", "fw_manifest.py --workspace {ws} --check",
                   "agent: read the diff against the recipe's list"],
     },
+    "fpga-setup": {
+        "fpga": True,
+        "match": [r"\b(setup|install|toolchain|tools?)\b"],
+        "summary": "check the gateware tools: chip-flow's eda (iverilog, verilator, yosys, cocotb) and nextpnr",
+        "workspace": False,
+        "steps": ["fpga_setup.py"],
+    },
+    "fpga-scaffold": {
+        "fpga": True,
+        "match": [r"\b(scaffold|new|start|create)\b"],
+        "summary": "start firmware/ as a gateware project from templates/fpga (never overwrites a file)",
+        "steps": ["fpga_scaffold.py --workspace {ws}",
+                  "agent: fill gateware.json `board` from firmware/README.md when it exists"],
+    },
+    "fpga-build": {
+        "fpga": True,
+        "match": [r"\b(build|synth\w*|lint|bitstream|place|route|pnr|nextpnr)\b"],
+        "summary": "lint and synthesise the core; the bitstream refuses until the board stage adds its top",
+        "steps": ["fpga_build.py --workspace {ws}"],
+    },
+    "fpga-sim": {
+        "fpga": True,
+        "match": [r"\b(sim\w*|test\w*|testbench|bench|cocotb|verify)\b"],
+        "summary": "run the cocotb bench over Icarus through /vde's cocotblib (phase step, skew, commit)",
+        "steps": ["fpga_sim.py --workspace {ws}"],
+    },
+    "fpga-manifest": {
+        "fpga": True,
+        "match": [r"\bmanifest\b", r"\b(npie|hand ?off|instrument)\b"],
+        "summary": "write or check firmware/fwe-manifest.json, the interface /npie programs and drives",
+        "steps": ["fpga_manifest.py --workspace {ws}"],
+    },
+    "fpga-review": {
+        "fpga": True,
+        "match": [r"\b(review|audit)\b"],
+        "summary": "review the gateware against the bench, the board handoff and the manifest",
+        "steps": ["fpga_build.py --workspace {ws} --synth-only", "fpga_sim.py --workspace {ws}",
+                  "fpga_manifest.py --workspace {ws} --check",
+                  "agent: read the diff against the recipe's list"],
+    },
     "full-run": {
         "match": [r"\b(full.?run|end to end|from scratch|firmware for)\b", r"^run (on|for)\b"],
         "summary": "the whole path for a board: setup, scaffold, build, host tests",
@@ -112,9 +155,14 @@ def plan(verb: str, ws: str | None) -> tuple[int, dict]:
                "steps": [bind(s, wsp) for s in v["steps"]]}
 
 
+FPGA = re.compile(r"\b(fpga|gateware|verilog|rtl|bitstream|serdes|gearbox|yosys|nextpnr|cocotb|ecp5)\b")
+
+
 def match(task: str) -> list[str]:
     t = task.lower().strip()
-    return [n for n, v in VERBS.items() if any(re.search(rx, t) for rx in v["match"])]
+    fpga = bool(FPGA.search(t))
+    return [n for n, v in VERBS.items() if v.get("fpga", False) == fpga
+            and any(re.search(rx, t) for rx in v["match"])]
 
 
 def validate() -> list[str]:

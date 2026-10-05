@@ -1,6 +1,6 @@
 ---
 name: fwe
-description: AI firmware engineer for the boards hwde designs. Takes a TASK for one board - set up the toolchain, derive the pin map from the netlist, scaffold a firmware project, write a stage (bring-up, six-step, FOC), build with warnings as errors, run the host unit tests, review - and routes it through one task_router.py. Works in the board's workspace as firmware/; STM32G4 first. Invoke via /fwe <task> [board].
+description: AI firmware engineer for the boards hwde designs. Takes a TASK for one board - set up the toolchain, derive the pin map from the netlist, scaffold a firmware project, write a stage (bring-up, six-step, FOC), build with warnings as errors, run the host unit tests, review - and routes it through one task_router.py. Works in the board's workspace as firmware/; STM32G4 first. Also writes FPGA gateware (fpga-* verbs: tools, scaffold, build, sim, manifest, review), first the 8-channel 13.56 MHz PWM with ~1 ns phase steps. Invoke via /fwe <task> [board].
 ---
 
 # fwe playbook
@@ -29,6 +29,14 @@ bare name also finds a numbered workspace `<PN>_<name>`.
 
 Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `stage` `review` `full-run`.
 
+FPGA verbs: `fpga-setup` `fpga-scaffold` `fpga-build` `fpga-sim`
+`fpga-manifest` `fpga-review`. A task that names an FPGA (fpga, gateware,
+verilog, rtl, bitstream, serdes, yosys, nextpnr, cocotb, ecp5) routes only to
+these, and any other task only to the MCU verbs. Gateware also lives in
+`firmware/`, described by `gateware.json`; `reference/fpga.md` has its shape,
+the UART register protocol and the /npie manifest. Its sim and synthesis run
+on chip-flow's `bin/eda`, and the bench reuses /vde's cocotblib.
+
 ## Rules
 
 1. The firmware lives in the board's workspace (`firmware/`) and lands through
@@ -42,7 +50,7 @@ Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `stage` `revi
 4. User space only. A tool that needs root, apt or a container is a question
    for the owner, not a workaround.
 5. Say which rung each claim reached: pin map, build, host tests, simulation,
-   hardware. /fwe never reaches hardware; /npie flashes and drives the board
+   hardware (for gateware: lint, synthesis, bench, bitstream, hardware). /fwe never reaches hardware; /npie flashes and drives the board
    through `firmware/fwe-manifest.json` (`reference/manifest.md`).
 
 ## Reference
@@ -51,5 +59,6 @@ Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `stage` `revi
 - `reference/manifest.md`: the /fwe -> /npie interface and UART protocol.
 - `reference/toolchain.lock.json`: pinned tools and CMSIS.
 - `reference/mcu/<family>.json`: the MCU pin/AF table the pin map uses.
-- `templates/<family>/`: the project a scaffold starts from.
+- `templates/<family>/`: the project a scaffold starts from (`templates/fpga/` for gateware).
+- `reference/fpga.md`: the FPGA target, its protocol and its manifest.
 - `LEARNINGS.md` at the repo root, tag `[fwe]`: grep it before you start.
