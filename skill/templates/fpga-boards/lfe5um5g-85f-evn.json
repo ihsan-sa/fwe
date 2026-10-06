@@ -19,7 +19,7 @@
     "io_attrs": {"DRIVE": "8", "SLEWRATE": "FAST", "PULLMODE": "NONE"},
     "uart_rx_pin": "P2",
     "uart_tx_pin": "P3",
-    "uart_note": "FT2232H port B reaches P2/P3 only after R22/R23 are removed, 0 ohm fitted on R34/R35, and port B is set to UART (FT_Prog or fixFT2232_ecp5evn)",
+    "uart_note": "FT2232H port B reaches P2 (FPGA rx, TXD_UART, BDBUS0) and P3 (FPGA tx, RXD_UART, BDBUS1) only after 0 ohm is fitted on R34/R35 and port B's EEPROM is switched from FIFO to UART (back it up first, then fixFT2232_ecp5evn -v 0x403 -p 0x6010); leave R22/R23 fitted, they carry I2C (UG FPGA-EB-02017-1.3 s6.2)",
     "loader": "ecp5_evn",
     "pll": [
       {"CLKI_DIV": 1, "CLKFB_DIV": 1, "CLKOP_DIV": 45, "CLKOS_DIV": 8},
