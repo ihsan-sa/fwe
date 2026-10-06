@@ -10,15 +10,42 @@
     "handoff": "firmware/README.md",
     "model": null,
     "vendor": null,
+    "family": null,
     "part": null,
     "package": null,
     "speed": null,
+    "nextpnr_args": [],
     "ref_clk_hz": null,
     "ref_clk_pin": null,
     "pwm_pins": [],
     "io_standard": null,
+    "io_attrs": {},
     "uart_rx_pin": null,
     "uart_tx_pin": null,
-    "loader": null
+    "loader": null,
+    "pll": []
+  },
+  "calibration": {
+    "source": null,
+    "coarse": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "fine": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
   }
 }

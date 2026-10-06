@@ -86,21 +86,22 @@ VERBS = {
     "fpga-setup": {
         "fpga": True,
         "match": [r"\b(setup|install|toolchain|tools?)\b"],
-        "summary": "check the gateware tools: chip-flow's eda (iverilog, verilator, yosys, cocotb) and nextpnr",
+        "summary": "check the gateware tools: chip-flow's eda (iverilog, verilator, yosys, cocotb) and nextpnr; "
+                   "--install puts place and route in user space",
         "workspace": False,
-        "steps": ["fpga_setup.py"],
+        "steps": ["fpga_setup.py", "fpga_setup.py --install (when only nextpnr-ecp5/ecppack are missing)"],
     },
     "fpga-scaffold": {
         "fpga": True,
         "match": [r"\b(scaffold|new|start|create)\b"],
         "summary": "start firmware/ as a gateware project from templates/fpga (never overwrites a file)",
-        "steps": ["fpga_scaffold.py --workspace {ws}",
-                  "agent: fill gateware.json `board` from firmware/README.md when it exists"],
+        "steps": ["fpga_scaffold.py --workspace {ws} [--board <templates/fpga-boards name>]",
+                  "agent: fill gateware.json `board` from firmware/README.md when no profile fits"],
     },
     "fpga-build": {
         "fpga": True,
         "match": [r"\b(build|synth\w*|lint|bitstream|place|route|pnr|nextpnr)\b"],
-        "summary": "lint and synthesise the core; the bitstream refuses until the board stage adds its top",
+        "summary": "lint and synthesise the core, then place and route the board top to a bitstream with timing met",
         "steps": ["fpga_build.py --workspace {ws}"],
     },
     "fpga-sim": {

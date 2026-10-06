@@ -1,5 +1,6 @@
 """test_pwm8.py - cocotb bench for pwm8_ctrl: phase step, 8-channel skew,
-atomic commit, duty limits, enable, and the UART register protocol.
+atomic commit, duty limits, enable, the UART register protocol, and the
+per-channel skew trim (coarse steps plus delay-line taps).
 
 Run by scripts/fpga_sim.py through chip-flow's cocotblib (Icarus). Every
 test resets the design and builds its own state. `steps(ch)` rebuilds the
@@ -12,6 +13,9 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, FallingEdge, RisingEdge
 
 CH = 8
+F_RF = 13.56e6       # the design's carrier: a step is 1 / (N * F_RF)
+TAP_S = 25e-12       # DELAYF's nominal tap; the real one is calibrated on the bench
+TAPS = 128
 
 
 async def reset(dut):
@@ -198,6 +202,100 @@ async def test_disable_turns_outputs_off_at_once(dut):
     r = cocotb.start_soon(recv(dut, cpb))
     for b in (ord("W"), 0x01, 0x00):
         await send(dut, b, cpb)
-    await ClockCycles(dut.clk, 3)          # stop bit sampled, then two clocks
+    await ClockCycles(dut.clk, 4)          # stop bit sampled, then three clocks
     assert int(dut.word.value) == 0, "outputs still high after disable"
     assert await r == ord("K")
+
+
+def taps(dut):
+    return [int(getattr(dut, "line")[k].dl.tap.value) for k in range(CH)]
+
+
+def moves(dut):
+    return [int(getattr(dut, "line")[k].dl.moves.value) for k in range(CH)]
+
+
+async def taps_settled(dut, cpb):
+    for _ in range(100):
+        if await read(dut, cpb, 0x01) & 8 == 0:
+            return taps(dut)
+    raise AssertionError("the delay lines never settled (ctrl bit3 stuck)")
+
+
+def calibration(delay_s, step_s, tap_s=TAP_S):
+    """The trim table for measured channel delays: hold every channel back to
+    the latest one, whole steps first and the rest in taps."""
+    late = max(delay_s)
+    table = []
+    for d in delay_s:
+        c = int((late - d) // step_s)
+        table.append((c, round((late - d - c * step_s) / tap_s)))
+    return table
+
+
+@cocotb.test()
+async def test_coarse_trim_delays_the_edge_and_lands_on_commit(dut):
+    n, w, cpb = await reset(dut)
+    assert await read(dut, cpb, 0x05) == TAPS
+    await program(dut, cpb, [3] * CH, [n // 2] * CH)
+    await settle(dut, n, w)
+    trim = [0, 1, 2, w, w + 1, n - 3, n - 1, 5]
+    for k in range(CH):
+        await write(dut, cpb, 0x20 + k, trim[k])
+    s = await capture(dut, n, w, 1)
+    assert all(rising(s[k] * 2)[0] == 3 for k in range(CH)), "a trim moved an edge before commit"
+    assert [await read(dut, cpb, 0x20 + k) for k in range(CH)] == trim
+    await write(dut, cpb, 0x01, 3)
+    await settle(dut, n, w)
+    s = await capture(dut, n, w, 2)
+    for k in range(CH):
+        want = (3 + trim[k]) % n
+        assert {e % n for e in rising(s[k])} == {want}, f"ch{k}: edges {rising(s[k])}, want {want}"
+        assert sum(s[k]) == n // 2 * 2, f"ch{k}: the trim changed the duty"
+    await write(dut, cpb, 0x20, n, expect=b"E")
+    await write(dut, cpb, 0x28, TAPS, expect=b"E")
+    assert await read(dut, cpb, 0x20) == trim[0] and await read(dut, cpb, 0x28) == 0
+
+
+@cocotb.test()
+async def test_fine_trim_walks_each_delay_line_to_its_tap(dut):
+    n, w, cpb = await reset(dut)
+    fine = [0, 1, TAPS - 1, 64, 5, 53, 10, 100]
+    for k in range(CH):
+        await write(dut, cpb, 0x28 + k, fine[k])
+    await ClockCycles(dut.clk, 4 * TAPS)
+    assert taps(dut) == [0] * CH, "a delay line moved before commit"
+    await write(dut, cpb, 0x01, 2)        # commit, outputs still off
+    assert await taps_settled(dut, cpb) == fine
+    assert moves(dut) == fine, "a line overshot and came back"
+    # walk back down: every line takes the shortest way, one tap per move
+    back = [3, 0, 120, 64, 0, 20, 11, 99]
+    for k in range(CH):
+        await write(dut, cpb, 0x28 + k, back[k])
+    await write(dut, cpb, 0x01, 2)
+    assert await taps_settled(dut, cpb) == back
+    assert moves(dut) == [f + abs(f - b) for f, b in zip(fine, back)]
+    assert [await read(dut, cpb, 0x28 + k) for k in range(CH)] == back
+
+
+@cocotb.test()
+async def test_calibration_table_brings_the_skew_under_a_tenth_of_a_ns(dut):
+    n, w, cpb = await reset(dut)
+    step = 1 / (n * F_RF)
+    # the boards seat's worst case: 3.59 ns from first to last channel, uncalibrated
+    delay = [d * 1e-9 for d in (0.00, 3.59, 1.27, 2.64, 0.41, 3.05, 1.88, 0.93)]
+    table = calibration(delay, step)
+    assert max(c for c, _ in table) >= 1 and max(f for _, f in table) < TAPS
+    for k, (c, f) in enumerate(table):
+        await write(dut, cpb, 0x20 + k, c)
+        await write(dut, cpb, 0x28 + k, f)
+    await program(dut, cpb, [0] * CH, [n // 2] * CH)
+    await settle(dut, n, w)
+    tap = await taps_settled(dut, cpb)
+    s = await capture(dut, n, w, 2)
+    edge = [rising(s[k])[0] for k in range(CH)]
+    assert edge == [c for c, _ in table], f"coarse trims not applied: edges {edge}"
+    arrive = [delay[k] + edge[k] * step + tap[k] * TAP_S for k in range(CH)]
+    span = max(arrive) - min(arrive)
+    assert span <= TAP_S + 1e-15, f"calibrated skew {span * 1e12:.0f} ps, over one tap"
+    assert span < 0.1e-9 < max(delay) - min(delay)

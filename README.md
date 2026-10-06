@@ -65,7 +65,8 @@ protocol and the manifest /npie reads.
 Simulation and synthesis use chip-flow's
 `bin/eda` toolchain (Icarus, Verilator, Yosys, cocotb), the same one `/vde`
 uses, found at `CHIP_FLOW_HOME` (default `~/.claude/skills/chip-flow`).
-Place and route needs `nextpnr-ecp5` and `ecppack` on `PATH`.
+Place and route needs `nextpnr-ecp5` and `ecppack`: `fpga_setup.py --install`
+unpacks a pinned OSS CAD Suite under `~/.local/share/fwe/`, user space only.
 
 ## Tests
 
