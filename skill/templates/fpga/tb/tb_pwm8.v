@@ -23,7 +23,36 @@ module tb_pwm8;
     wire           period_start;
     // the geometry, readable from the test
     wire [7:0] p_n = N, p_w = W, p_cpb = CPB;
+    wire [CH-1:0]  dly_loadn, dly_move, dly_dir;
     pwm8_ctrl #(.CH(CH), .N(N), .W(W), .PW(PW), .CPB(CPB)) dut (
         .clk(clk), .rst(rst), .uart_rx(uart_rx), .uart_tx(uart_tx),
-        .word(word), .period_start(period_start));
+        .word(word), .period_start(period_start),
+        .dly_loadn(dly_loadn), .dly_move(dly_move), .dly_dir(dly_dir));
+    // each channel's delay line, as a tap count the test reads (tap_k)
+    genvar g;
+    generate
+        for (g = 0; g < CH; g = g + 1) begin : line
+            tb_delayf dl (.loadn(dly_loadn[g]), .move(dly_move[g]), .direction(dly_dir[g]));
+        end
+    endgenerate
+endmodule
+
+// tb_delayf - what the bench knows of ECP5's DELAYF: LOADN low puts the line
+// back at DEL_VALUE (0), each rising MOVE edge moves one tap, DIRECTION 1
+// toward less delay; it stops at 0 and 127 (CFLAG). The edge itself is not
+// delayed here: the test turns the tap count into time.
+module tb_delayf (
+    input loadn,
+    input move,
+    input direction
+);
+    integer tap = 0;
+    integer moves = 0;
+    always @(negedge loadn) tap = 0;
+    always @(posedge move)
+        if (loadn) begin
+            moves = moves + 1;
+            if (direction && tap > 0) tap = tap - 1;
+            else if (!direction && tap < 127) tap = tap + 1;
+        end
 endmodule

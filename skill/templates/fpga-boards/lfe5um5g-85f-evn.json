@@ -1,0 +1,30 @@
+{
+  "schema": "fwe-fpga-board/1",
+  "name": "lfe5um5g-85f-evn",
+  "source": "PCB-0025-A_pwm-fpga-8ch/firmware/README.md (boards PR #39); UART pins from litex-boards lattice_ecp5_evn.py",
+  "geometry": {"steps_per_period": 56, "word_bits": 4},
+  "board": {
+    "handoff": "firmware/README.md",
+    "model": "Lattice ECP5-5G Evaluation Board LFE5UM5G-85F-EVN",
+    "vendor": "lattice",
+    "family": "ecp5",
+    "part": "LFE5UM5G-85F-8BG381",
+    "package": "CABGA381",
+    "speed": "8",
+    "nextpnr_args": ["--um5g-85k", "--package", "CABGA381", "--speed", "8"],
+    "ref_clk_hz": 12000000,
+    "ref_clk_pin": "A10",
+    "pwm_pins": ["M18", "P17", "M17", "U20", "N18", "R20", "R18", "U18"],
+    "io_standard": "LVCMOS33",
+    "io_attrs": {"DRIVE": "8", "SLEWRATE": "FAST", "PULLMODE": "NONE"},
+    "uart_rx_pin": "P2",
+    "uart_tx_pin": "P3",
+    "uart_note": "FT2232H port B reaches P2/P3 only after R22/R23 are removed, 0 ohm fitted on R34/R35, and port B is set to UART (FT_Prog or fixFT2232_ecp5evn)",
+    "loader": "ecp5_evn",
+    "pll": [
+      {"CLKI_DIV": 1, "CLKFB_DIV": 1, "CLKOP_DIV": 45, "CLKOS_DIV": 8},
+      {"CLKI_DIV": 4, "CLKFB_DIV": 1, "CLKOP_DIV": 45, "CLKOS_DIV": 2}
+    ],
+    "keep_free": ["JP8.8", "JP8.10", "JP8.11", "JP8.12", "JP8.27", "JP8.28"]
+  }
+}
