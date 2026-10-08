@@ -212,7 +212,6 @@ static void reply_refused(int r)
     if (r == -1) reply_err_trips("trip", g_app.trips.latched);
     else if (r == -2) reply_err_trips("active", safety_active_now() | hrtim_fault_flags());
     else if (r == -3) reply_err("hw", "hardware trips or control sample not running");
-    else if (r == -4) reply_err("output", "HRTIM refused the outputs: a fault input is active");
     else if (r == -5) reply_err("state", "regulating: disarm first");
     else reply_err("args", "bad value");
 }

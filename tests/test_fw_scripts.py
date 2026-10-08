@@ -25,6 +25,7 @@ import fw_manifest  # noqa: E402
 import fw_scaffold  # noqa: E402
 import fw_sim  # noqa: E402
 import fw_test  # noqa: E402
+import fwe_setup  # noqa: E402
 import task_router  # noqa: E402
 from _boards import board_path, need_board  # noqa: E402
 from test_pinmap import motor_fixture  # noqa: E402
@@ -283,3 +284,48 @@ def test_g474_boost_builds_and_its_manifest_carries_the_pwm_and_the_trips(tmp_pa
     cfg.write_text(cfg.read_text().replace("VOUT_OV_V        55.0f", "VOUT_OV_V        56.0f"))
     rc, res = run(fw_manifest, ["--workspace", str(ws), "--check"], tmp_path)
     assert (rc, res["stale"]) == (1, ["safety", "trips"])
+
+
+def _core_tree(tmp_path, monkeypatch, marker: str | None, paths: bool = True) -> dict:
+    """A cmsis-core tree under a scratch FWE_TOOLS_DIR with this .fwe-commit."""
+    monkeypatch.setenv("FWE_TOOLS_DIR", str(tmp_path / "tools"))
+    e = next(x for x in fwe_setup.fwenv.lock()["sources"] if x["name"] == "cmsis-core")
+    root = fwe_setup.fwenv.source_root(e)
+    root.mkdir(parents=True)
+    if paths:
+        for p in e["paths"]:
+            (root / p).mkdir(parents=True)
+    if marker is not None:
+        (root / ".fwe-commit").write_text(marker.replace("COMMIT", e["commit"]))
+    return e
+
+
+def _check_core(tmp_path) -> tuple[int, str]:
+    rc, res = run(fwe_setup, ["--check", "--only", "cmsis-core"], tmp_path)
+    return rc, res["items"][0]["status"]
+
+
+def test_setup_check_passes_the_marker_setup_writes(tmp_path, monkeypatch):
+    e = _core_tree(tmp_path, monkeypatch, None)
+    (fwe_setup.fwenv.source_root(e) / ".fwe-commit").write_text(fwe_setup._marker(e))
+    assert _check_core(tmp_path) == (0, "ok")
+
+
+def test_setup_check_passes_a_commit_only_marker_with_the_paths_there(tmp_path, monkeypatch):
+    _core_tree(tmp_path, monkeypatch, "COMMIT\n")      # written before #6 added the paths
+    assert _check_core(tmp_path) == (0, "ok")
+
+
+def test_setup_check_misses_a_commit_only_marker_without_the_paths(tmp_path, monkeypatch):
+    _core_tree(tmp_path, monkeypatch, "COMMIT\n", paths=False)
+    assert _check_core(tmp_path) == (1, "missing")
+
+
+def test_setup_check_misses_another_commit(tmp_path, monkeypatch):
+    _core_tree(tmp_path, monkeypatch, "0" * 40 + "\n")
+    assert _check_core(tmp_path) == (1, "missing")
+
+
+def test_setup_check_misses_a_marker_that_lacks_a_pinned_path(tmp_path, monkeypatch):
+    _core_tree(tmp_path, monkeypatch, "COMMIT\nsome/other/path\n")
+    assert _check_core(tmp_path) == (1, "missing")

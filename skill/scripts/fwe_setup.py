@@ -6,7 +6,9 @@ Reads reference/toolchain.lock.json. Each tarball is downloaded into
 nothing is extracted), and unpacked into <tools>/<name>-<version>/. Each
 source is a sparse, shallow git fetch of the pinned commit into
 <tools>/src/<name>-<version>/, re-fetched when the lock's commit or paths
-change. <tools> is FWE_TOOLS_DIR, default
+change or a pinned path is gone; a tree whose .fwe-commit holds only the
+commit (written before the marker listed paths) counts as present when every
+pinned path is there. <tools> is FWE_TOOLS_DIR, default
 ~/.local/fwe-tools. Nothing needs root; no apt, no containers.
 
 Usage:
@@ -86,9 +88,22 @@ def _marker(entry: dict) -> str:
 
 
 def _source_ok(entry: dict) -> bool:
+    """The tree is at the pinned commit and holds every pinned path. Read the
+    marker as _marker() writes it, and also in its older form (the commit
+    alone, before the paths were added), which trees fetched then still carry:
+    for those the paths on disk decide. A marker that lists paths must list
+    every path the lock pins, so a lock that adds one re-fetches."""
     root = fwenv.source_root(entry)
-    return (root / ".fwe-commit").is_file() and \
-        (root / ".fwe-commit").read_text() == _marker(entry)
+    mark = root / ".fwe-commit"
+    if not mark.is_file():
+        return False
+    lines = mark.read_text().split("\n")
+    lines = [ln for ln in lines if ln]
+    if not lines or lines[0] != entry["commit"]:
+        return False
+    if len(lines) > 1 and not set(entry["paths"]) <= set(lines[1:]):
+        return False
+    return all((root / p).exists() for p in entry["paths"])
 
 
 def _install_source(entry: dict) -> str:

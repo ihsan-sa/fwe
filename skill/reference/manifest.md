@@ -107,8 +107,9 @@ the firmware latches the fault, reports it once as an `EVT` matching
 comparator has fallen. `threshold` is the trip level at the sense net's
 source (output volts, inductor amps), from `config/fw_config.h`.
 `commands`: `arm` starts the soft start into the voltage loop, and
-`duty <d>` drives an open-loop duty for the bench (both `safe: false`;
-`duty 0` holds the high side on, so a charged output feeds back to the input).
+`duty <d>` drives an open-loop duty for the bench (both `safe: false`).
+`duty 0` turns both outputs off rather than holding the high side on, and
+they come back on once a real pulse has reached the timer's compare.
 
 ## Test hooks
 
