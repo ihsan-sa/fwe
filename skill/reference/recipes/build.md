@@ -2,7 +2,9 @@
 
 `fw_build.py --workspace <board> [--stage <name>] [--clean]`: pin-map drift
 check, CMake configure, build. Warnings are errors (the template's flags);
-vendor sources are the only files compiled without them.
+vendor sources are the only files compiled without them. `--stage` defaults
+to the `FWE_STAGE` the project's CMakeLists.txt sets (`bringup`, or `boost`
+for the HRTIM boost template).
 
 - exit 1 `step: pinmap` -> the board changed; run the pinmap recipe.
 - exit 1 `step: compile` -> read `log_tail`, fix the source. Never drop
