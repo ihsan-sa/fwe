@@ -12,6 +12,9 @@ Outputs land in <workspace>/firmware/build/: fw.elf, fw.bin, fw.hex, fw.map.
 
   fw_build.py --workspace PCB-0018-A_bldc-motor-driver [--stage bringup]
 
+--stage defaults to the FWE_STAGE the project's CMakeLists.txt sets (the
+stm32g4 template's "bringup", the boost template's "boost").
+
 JSON to stdout (or --out): {"ok", "step", "version", "stage", "artifacts":
 {name: {path, sha256}}, "size": {text, data, bss}, "log_tail"}. Exit 0 built,
 1 drift or a failed configure/compile (the step says which), 2 error (the
@@ -46,7 +49,12 @@ def tail(text: str, n: int = 40) -> str:
     return "\n".join(text.strip().splitlines()[-n:])
 
 
-def build(ws: Path, stage: str, base: str, clean: bool) -> tuple[int, dict]:
+def default_stage(fw: Path) -> str:
+    m = re.search(r'^set\(FWE_STAGE\s+"([^"]+)"', (fw / "CMakeLists.txt").read_text(encoding="utf-8"), re.M)
+    return m.group(1) if m else "bringup"
+
+
+def build(ws: Path, stage: str | None, base: str, clean: bool) -> tuple[int, dict]:
     fw = ws / "firmware"
     if not (fw / "CMakeLists.txt").is_file():
         return 2, {"ok": False, "error": f"no firmware project in {fw}: run fw_scaffold.py"}
@@ -61,6 +69,7 @@ def build(ws: Path, stage: str, base: str, clean: bool) -> tuple[int, dict]:
                                        "drift": pm.get("drift"), "findings": pm.get("findings"),
                                        "error": pm.get("error")}
     ver = version(ws, base)
+    stage = stage or default_stage(fw)
     out = fw / "build"
     if clean and out.is_dir():
         shutil.rmtree(out)
@@ -92,7 +101,8 @@ def build(ws: Path, stage: str, base: str, clean: bool) -> tuple[int, dict]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--workspace", required=True, help="board workspace (path, or name under boards root)")
-    ap.add_argument("--stage", default="bringup", help="firmware stage baked into the banner")
+    ap.add_argument("--stage", help="firmware stage baked into the banner "
+                    "(default: the FWE_STAGE in the project's CMakeLists.txt)")
     ap.add_argument("--base-version", default="0.1.0", help="version before the +g<sha> suffix")
     ap.add_argument("--clean", action="store_true", help="delete firmware/build first")
     ap.add_argument("--out", help="write the JSON result here instead of stdout")

@@ -1,0 +1,60 @@
+// g474.repl - STM32G474xB for a Renode smoke test: core, memory, NVIC and
+// USART2 (the console, IRQ 38) are modelled; RCC, ADC1/2 and HRTIM1 are
+// read-back stubs (rcc.py, adc.py, hrtim.py) and the DAC1/DAC3 status
+// registers are always ready (ready.py). Every other peripheral (COMP, GPIO,
+// IWDG, the fan timer) is unmodelled: reads return 0 and Renode logs them,
+// so both comparators read "below threshold". hrtim.py keeps the registers
+// the firmware programs, so a pass proves Timer A's period, dead time and
+// fault enables were written and that an injected FLTn drops the output
+// enables and latches in the firmware; it proves nothing about real PWM
+// edges, the DLL, the ADC trigger or the analog trip thresholds.
+// Addresses: RM0440 Rev 9 memory map; memory sizes from ld/stm32g474xb.ld. fw_sim.py replaces @SIMDIR@ with this directory's path.
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x20000
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x18000
+
+ccmsram: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x8000
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 170000000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+usart2: UART.STM32F7_USART @ sysbus 0x40004400
+    frequency: 170000000
+    IRQ -> nvic@38
+
+flash_regs: Memory.MappedMemory @ sysbus 0x40022000
+    size: 0x400
+
+rcc: Python.PythonPeripheral @ sysbus 0x40021000
+    size: 0x400
+    initable: true
+    filename: "@SIMDIR@/rcc.py"
+
+dac1_sr: Python.PythonPeripheral @ sysbus 0x50000834
+    size: 0x4
+    initable: false
+    filename: "@SIMDIR@/ready.py"
+
+dac3_sr: Python.PythonPeripheral @ sysbus 0x50001034
+    size: 0x4
+    initable: false
+    filename: "@SIMDIR@/ready.py"
+
+adc12: Python.PythonPeripheral @ sysbus 0x50000000
+    size: 0x400
+    initable: true
+    filename: "@SIMDIR@/adc.py"
+
+hrtim: Python.PythonPeripheral @ sysbus 0x40016800
+    size: 0xC00
+    initable: true
+    filename: "@SIMDIR@/hrtim.py"
