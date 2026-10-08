@@ -70,9 +70,10 @@ int hrtim_faults_init(void);         /* after comp_init: FLTn from the comparato
 void hrtim_gate_pins_af(void);
 uint32_t hrtim_period(void);
 void hrtim_set_duty(float d);
-void hrtim_outputs_on(void);
+void hrtim_outputs_on(void);         /* arm: on once a real pulse is loaded (control/gate.c) */
 void hrtim_outputs_off(void);
 int hrtim_outputs_are_on(void);
+int hrtim_outputs_dropped(void);    /* should be switching, but the hardware dropped them */
 uint32_t hrtim_fault_flags(void);   /* TRIP_*_HW bits whose FLTn flag is set */
 void hrtim_fault_flags_clear(void);
 int hrtim_dll_ready(void);

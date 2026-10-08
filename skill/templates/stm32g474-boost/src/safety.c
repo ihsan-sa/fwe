@@ -83,27 +83,21 @@ static int may_switch(void)
     return 0;
 }
 
-static int outputs_on_locked(void)
-{
-    hrtim_outputs_on();
-    if (!hrtim_outputs_are_on()) { stop_locked(); return -4; } /* a fault input is active */
-    return 0;
-}
-
 int safety_arm(void)
 {
     __disable_irq();
     int r = g_app.mode != MODE_OFF ? -5 : may_switch();
     if (r == 0) {
-        /* start the ramp at the present output, not the input: with the
-         * output caps still charged, a duty of 0 would hold the high side on
-         * and drive current back into the input */
+        /* start the ramp at the present output, not the input, so the
+         * feedforward duty matches the charged output caps. A duty of 0
+         * (output at or above the input) no longer holds the high side on:
+         * hrtim.c keeps both outputs off until the duty is a real pulse */
         boost_reset(&s_ctl);
         ss_start(&s_ss, fmaxf(g_app.vin_v, g_app.vout_v), VOUT_TARGET_V, SS_SLEW_V_PER_S);
         g_app.vref_v = s_ss.ref_v;
         hrtim_set_duty(boost_ff(g_app.vin_v, g_app.vref_v, D_MAX));
         g_app.mode = MODE_SOFTSTART;
-        r = outputs_on_locked();
+        hrtim_outputs_on(); /* enabled from a later sample; a refusal shows in safety_poll */
     }
     __enable_irq();
     return r;
@@ -122,7 +116,7 @@ int safety_open(float d)
         hrtim_set_duty(d);
         g_app.vref_v = 0.0f;
         g_app.mode = MODE_OPEN;
-        r = outputs_on_locked();
+        hrtim_outputs_on(); /* enabled from a later sample; a refusal shows in safety_poll */
     }
     __enable_irq();
     return r;
@@ -161,7 +155,7 @@ void safety_poll(void)
     uint32_t fresh = trip_latch(&g_app.trips, hrtim_fault_flags());
     if (g_app.mode != MODE_OFF) {
         if (stale) fresh |= trip_latch(&g_app.trips, TRIP_ADC);
-        if (trip_is_latched(&g_app.trips) || !hrtim_outputs_are_on()) stop_locked();
+        if (trip_is_latched(&g_app.trips) || hrtim_outputs_dropped()) stop_locked();
     }
     fresh |= g_app.evt;
     g_app.evt = 0u;

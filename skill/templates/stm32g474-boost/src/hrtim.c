@@ -13,21 +13,34 @@
  * Duty: CMP1 and the ADC trigger compare CMP2 are preloaded and move at the
  * repetition event (REP = 0: every period), so a new duty never cuts a pulse.
  *
+ * Zero duty: a null CMP1 would leave TA2, the high side, on for the whole
+ * period and let a charged output drive current back into the input.
+ * control/gate.c decides when the outputs may be enabled: only while armed,
+ * with no fault and a real pulse that has reached the active CMP1 (TIMxISR.REP
+ * set since the last CMP1 write); zero duty, disarm and any fault disable
+ * both (ODISR -> idle level, inactive: both FETs off).
+ *
  * Faults (28.3.17): the board's comparators reach FLTn on-chip (FLTxSRC =
  * 01, Table 228; the pin map verified which FLT each COMP reaches), active
  * high, enabled on Timer A. A fault drops the outputs to their fault state
  * and clears TxyOEN in hardware; firmware only learns of it from the ISR
- * flags.
+ * flags. Once both inputs are set up, hrtim_faults_init() sets the write-once
+ * locks (28.3.17): FLTnLCK freezes each input's FLTINRx set-up and FLTLCK
+ * freezes Timer A's FLTnEN, so nothing can turn a trip off until reset.
  *
  * ADC trigger 2 (hrtim_adc_trg2 -> ADC1 JEXTSEL 10011, RM0440 Table 167) on
  * Timer A CMP2, mid on-time; post-scaled by CTRL_DIV (ADCPS1.AD2PSC, 28.3.20). */
 #include "app.h"
 #include "scale.h"
+#include "gate.h"
 
 #define TA (HRTIM1->sTimerxRegs[0])
 #define HC (HRTIM1->sCommonRegs)
 
 static uint32_t s_per;
+static uint32_t s_cmp1;  /* the last CMP1 written (the preload) */
+static int s_armed;      /* firmware wants the bridge switching */
+static gate_t s_gate;
 
 static GPIO_TypeDef *const k_gate_port[2] = { PIN_PWM_LO_PORT, PIN_PWM_HI_PORT };
 static const uint32_t k_gate_pin[2] = { PIN_PWM_LO_PIN, PIN_PWM_HI_PIN };
@@ -58,23 +71,30 @@ typedef struct {
     volatile uint32_t *inr;   /* FLTINR1 (FLT1..4) or FLTINR2 (FLT5..6) */
     uint32_t cfg, en, src1;   /* P|SRC0|F, E, SRC[1] (in FLTINR2) */
     uint32_t timer_en, isr, icr; /* FLTxR.FLTnEN, ISR.FLTn, ICR.FLTnC */
+    uint32_t lck;             /* FLTINRx.FLTnLCK */
 } flt_t;
 
 static int flt_of(uint32_t n, flt_t *f)
 {
     switch (n) {
     case 1u: *f = (flt_t){ &HC.FLTINR1, HRTIM_FLTINR1_FLT1P | HRTIM_FLTINR1_FLT1SRC_0 | (FAULT_FILTER << HRTIM_FLTINR1_FLT1F_Pos),
-                           HRTIM_FLTINR1_FLT1E, HRTIM_FLTINR2_FLT1SRC_1, HRTIM_FLTR_FLT1EN, HRTIM_ISR_FLT1, HRTIM_ICR_FLT1C }; return 0;
+                           HRTIM_FLTINR1_FLT1E, HRTIM_FLTINR2_FLT1SRC_1, HRTIM_FLTR_FLT1EN, HRTIM_ISR_FLT1, HRTIM_ICR_FLT1C,
+                           HRTIM_FLTINR1_FLT1LCK }; return 0;
     case 2u: *f = (flt_t){ &HC.FLTINR1, HRTIM_FLTINR1_FLT2P | HRTIM_FLTINR1_FLT2SRC_0 | (FAULT_FILTER << HRTIM_FLTINR1_FLT2F_Pos),
-                           HRTIM_FLTINR1_FLT2E, HRTIM_FLTINR2_FLT2SRC_1, HRTIM_FLTR_FLT2EN, HRTIM_ISR_FLT2, HRTIM_ICR_FLT2C }; return 0;
+                           HRTIM_FLTINR1_FLT2E, HRTIM_FLTINR2_FLT2SRC_1, HRTIM_FLTR_FLT2EN, HRTIM_ISR_FLT2, HRTIM_ICR_FLT2C,
+                           HRTIM_FLTINR1_FLT2LCK }; return 0;
     case 3u: *f = (flt_t){ &HC.FLTINR1, HRTIM_FLTINR1_FLT3P | HRTIM_FLTINR1_FLT3SRC_0 | (FAULT_FILTER << HRTIM_FLTINR1_FLT3F_Pos),
-                           HRTIM_FLTINR1_FLT3E, HRTIM_FLTINR2_FLT3SRC_1, HRTIM_FLTR_FLT3EN, HRTIM_ISR_FLT3, HRTIM_ICR_FLT3C }; return 0;
+                           HRTIM_FLTINR1_FLT3E, HRTIM_FLTINR2_FLT3SRC_1, HRTIM_FLTR_FLT3EN, HRTIM_ISR_FLT3, HRTIM_ICR_FLT3C,
+                           HRTIM_FLTINR1_FLT3LCK }; return 0;
     case 4u: *f = (flt_t){ &HC.FLTINR1, HRTIM_FLTINR1_FLT4P | HRTIM_FLTINR1_FLT4SRC_0 | (FAULT_FILTER << HRTIM_FLTINR1_FLT4F_Pos),
-                           HRTIM_FLTINR1_FLT4E, HRTIM_FLTINR2_FLT4SRC_1, HRTIM_FLTR_FLT4EN, HRTIM_ISR_FLT4, HRTIM_ICR_FLT4C }; return 0;
+                           HRTIM_FLTINR1_FLT4E, HRTIM_FLTINR2_FLT4SRC_1, HRTIM_FLTR_FLT4EN, HRTIM_ISR_FLT4, HRTIM_ICR_FLT4C,
+                           HRTIM_FLTINR1_FLT4LCK }; return 0;
     case 5u: *f = (flt_t){ &HC.FLTINR2, HRTIM_FLTINR2_FLT5P | HRTIM_FLTINR2_FLT5SRC_0 | (FAULT_FILTER << HRTIM_FLTINR2_FLT5F_Pos),
-                           HRTIM_FLTINR2_FLT5E, HRTIM_FLTINR2_FLT5SRC_1, HRTIM_FLTR_FLT5EN, HRTIM_ISR_FLT5, HRTIM_ICR_FLT5C }; return 0;
+                           HRTIM_FLTINR2_FLT5E, HRTIM_FLTINR2_FLT5SRC_1, HRTIM_FLTR_FLT5EN, HRTIM_ISR_FLT5, HRTIM_ICR_FLT5C,
+                           HRTIM_FLTINR2_FLT5LCK }; return 0;
     case 6u: *f = (flt_t){ &HC.FLTINR2, HRTIM_FLTINR2_FLT6P | HRTIM_FLTINR2_FLT6SRC_0 | (FAULT_FILTER << HRTIM_FLTINR2_FLT6F_Pos),
-                           HRTIM_FLTINR2_FLT6E, HRTIM_FLTINR2_FLT6SRC_1, HRTIM_FLTR_FLT6EN, HRTIM_ISR_FLT6, HRTIM_ICR_FLT6C }; return 0;
+                           HRTIM_FLTINR2_FLT6E, HRTIM_FLTINR2_FLT6SRC_1, HRTIM_FLTR_FLT6EN, HRTIM_ISR_FLT6, HRTIM_ICR_FLT6C,
+                           HRTIM_FLTINR2_FLT6LCK }; return 0;
     default: return -1;
     }
 }
@@ -117,6 +137,9 @@ int hrtim_init(void)
     TA.PERxR = s_per;
     TA.REPxR = 0u;
     TA.CMP1xR = 0u;                                    /* null duty: no pulse */
+    s_cmp1 = 0u;
+    s_armed = 0;
+    gate_init(&s_gate);
     TA.CMP2xR = hr_adc_cmp(0u, s_per);
     TA.DTxR = (dt << HRTIM_DTR_DTR_Pos) | (dt << HRTIM_DTR_DTF_Pos); /* DTPRSC = 0, both positive */
     TA.SETx1R = HRTIM_SET1R_PER;
@@ -141,7 +164,15 @@ int hrtim_init(void)
 
 int hrtim_faults_init(void)
 {
+    flt_t ov, oc;
+    if (flt_of(TRIP_OVP_FLT, &ov) || flt_of(TRIP_OCP_FLT, &oc)) return -1;
     if (fault_input_init(TRIP_OVP_FLT) || fault_input_init(TRIP_OCP_FLT)) return -1;
+    /* lock last, after both inputs (FLTINR1 and FLTINR2 share the SRC[1]
+     * bits); write-once, cleared only by a reset, and nothing writes FLTINRx
+     * or FLTxR after this */
+    *ov.inr |= ov.lck;
+    *oc.inr |= oc.lck;
+    TA.FLTxR |= HRTIM_FLTR_FLTLCK;
     hrtim_fault_flags_clear();
     return 0;
 }
@@ -151,29 +182,72 @@ uint32_t hrtim_period(void)
     return s_per;
 }
 
+/* 1 when a repetition event (the preload transfer) has happened since the
+ * last CMP1 write, so the active CMP1 holds that write */
+static int cmp1_loaded(void)
+{
+    return (TA.TIMxISR & HRTIM_TIMISR_REP) != 0u;
+}
+
+/* write CMP1, then clear REP: a repetition event between the two only
+ * delays the enable by a sample, never makes an unloaded compare look loaded */
+static void cmp1_write(uint32_t c)
+{
+    TA.CMP1xR = c;
+    TA.TIMxICR = HRTIM_TIMICR_REPC;
+    s_cmp1 = c;
+}
+
+/* apply control/gate.c's answer; called with the ADC interrupt masked or
+ * from it, so the gate state has one writer at a time */
+static void gate_apply(int loaded)
+{
+    gate_act_t a = gate_update(&s_gate, s_armed, hrtim_fault_flags() != 0u, s_cmp1, loaded);
+    if (a == GATE_ACT_DISABLE)
+        HC.ODISR = HRTIM_ODISR_TA1ODIS | HRTIM_ODISR_TA2ODIS;
+    else if (a == GATE_ACT_ENABLE)
+        HC.OENR = HRTIM_OENR_TA1OEN | HRTIM_OENR_TA2OEN; /* refused by hardware while a fault is active */
+}
+
 void hrtim_set_duty(float d)
 {
     uint32_t c = hr_duty_cmp(d, D_MAX, s_per);
-    TA.CMP1xR = c;
+    int loaded = cmp1_loaded();  /* about the previous write, so read it first */
+    cmp1_write(c);
     TA.CMP2xR = hr_adc_cmp(c, s_per);
     g_app.duty = (float)c / (float)s_per;
+    gate_apply(loaded);
 }
 
+/* Arm: the outputs come on from a later control sample, once a real pulse
+ * has reached the active CMP1 (gate.c), not here. s_armed is set before the
+ * gate sees it, or the arm would be lost. */
 void hrtim_outputs_on(void)
 {
-    HC.OENR = HRTIM_OENR_TA1OEN | HRTIM_OENR_TA2OEN; /* refused by hardware while a fault is active */
+    s_armed = 1;
+    gate_apply(cmp1_loaded());
 }
 
 void hrtim_outputs_off(void)
 {
+    s_armed = 0;
     HC.ODISR = HRTIM_ODISR_TA1ODIS | HRTIM_ODISR_TA2ODIS;
-    TA.CMP1xR = 0u;
+    cmp1_write(0u);
+    gate_apply(0);
     g_app.duty = 0.0f;
 }
 
 int hrtim_outputs_are_on(void)
 {
     return (HC.OENR & (HRTIM_OENR_TA1OEN | HRTIM_OENR_TA2OEN)) != 0u;
+}
+
+/* the outputs should be switching but the hardware has dropped one (a fault
+ * input cleared TxyOEN, or OENR was refused); off for zero duty is not a drop */
+int hrtim_outputs_dropped(void)
+{
+    uint32_t both = HRTIM_OENR_TA1OEN | HRTIM_OENR_TA2OEN;
+    return gate_outputs_wanted(&s_gate) && (HC.OENR & both) != both;
 }
 
 uint32_t hrtim_fault_flags(void)
