@@ -32,5 +32,7 @@ int main(void)
 
     CHECK(trip_name(TRIP_OVP_HW)[0] == 'o' && trip_name(TRIP_OT)[1] == 't');
     CHECK(trip_name(1u << 20)[0] == '?');
+    CHECK(trip_name(TRIP_ADC)[0] == 'a');
+    CHECK(trip_name(1u << TRIP_COUNT)[0] == '?');
     CHECK_DONE();
 }

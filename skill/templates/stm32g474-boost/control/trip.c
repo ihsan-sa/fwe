@@ -1,7 +1,7 @@
 #include "trip.h"
 
 static const char *const NAMES[TRIP_COUNT] = {
-    "ovp_hw", "ocp_hw", "ov", "oc", "vin_uv", "vin_ov", "ot"
+    "ovp_hw", "ocp_hw", "ov", "oc", "vin_uv", "vin_ov", "ot", "adc"
 };
 
 uint32_t trip_check(const trip_limits_t *lim, float vout_v, float il_a, float vin_v, float t_c)

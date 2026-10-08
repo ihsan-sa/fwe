@@ -92,10 +92,12 @@
 #define NTC_SNS_R25_OHM 10000.0f /* RT201 10k NTC B3380 */
 #define NTC_SNS_BETA 3380.0f
 
-/* ovp: VOUT_SNS -> COMP3 -> HRTIM FLTn UNVERIFIED (pinmap finding) */
+/* ovp: VOUT_SNS -> COMP3 -> HRTIM FLT5 */
 #define TRIP_OVP_COMP 3u
+#define TRIP_OVP_FLT 5u /* RM0440 Rev 9, section 28.3.2 Table 228 (Fault inputs, p.888) and section 11.3.9 Table 84 (Interconnect 11, p.395), FLTxSRC[1:0]=01 */
 
-/* ocp: ISNS -> COMP1 -> HRTIM FLTn UNVERIFIED (pinmap finding) */
+/* ocp: ISNS -> COMP1 -> HRTIM FLT4 */
 #define TRIP_OCP_COMP 1u
+#define TRIP_OCP_FLT 4u /* RM0440 Rev 9, section 28.3.2 Table 228 (Fault inputs, p.888) and section 11.3.9 Table 84 (Interconnect 11, p.395), FLTxSRC[1:0]=01 */
 
 #endif /* BOARD_PINS_H */

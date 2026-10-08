@@ -188,7 +188,7 @@ def g474_workspace(tmp: Path) -> Path:
 
 def test_golden_g474_boost_pinmap(tmp_path, capsys):
     ws = g474_workspace(tmp_path)
-    assert pinmap.main(["--workspace", str(ws)]) == 1  # findings: the unverified FLTn routes
+    assert pinmap.main(["--workspace", str(ws)]) == 0
     capsys.readouterr()
     fw = ws / "firmware"
     assert (fw / "pinmap.json").read_text() == (GOLD / "PCB-0026-A.pinmap.json").read_text()
@@ -204,8 +204,8 @@ def test_golden_g474_boost_pinmap(tmp_path, capsys):
     assert m["analog"]["ISNS"]["volts_per_amp"] == pytest.approx(0.05)
     assert m["analog"]["NTC_SNS"]["beta"] == 3380
     assert [(r["trip"], r["comp"], r["fault"]) for r in m["fault_routes"]] == \
-        [("ovp", "COMP3", None), ("ocp", "COMP1", None)]
-    assert {f["kind"] for f in m["findings"]} == {"fault_route_unverified"}
+        [("ovp", "COMP3", "FLT5"), ("ocp", "COMP1", "FLT4")]  # RM0440 Rev 9 Table 228
+    assert m["findings"] == []
 
 
 _load_mcu_table = pinmap.load_mcu_table

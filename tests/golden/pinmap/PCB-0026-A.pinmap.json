@@ -369,30 +369,17 @@
       "net": "VOUT_SNS",
       "pin": "PA0",
       "comp": "COMP3",
-      "fault": null,
-      "verified_against": null
+      "fault": "FLT5",
+      "verified_against": "RM0440 Rev 9, section 28.3.2 Table 228 (Fault inputs, p.888) and section 11.3.9 Table 84 (Interconnect 11, p.395), FLTxSRC[1:0]=01"
     },
     {
       "trip": "ocp",
       "net": "ISNS",
       "pin": "PA1",
       "comp": "COMP1",
-      "fault": null,
-      "verified_against": null
+      "fault": "FLT4",
+      "verified_against": "RM0440 Rev 9, section 28.3.2 Table 228 (Fault inputs, p.888) and section 11.3.9 Table 84 (Interconnect 11, p.395), FLTxSRC[1:0]=01"
     }
   ],
-  "findings": [
-    {
-      "kind": "fault_route_unverified",
-      "net": "VOUT_SNS",
-      "comp": "COMP3",
-      "detail": "the COMP -> HRTIM FLTn source is not verified in the MCU table (hrtim.fault_internal_sources)"
-    },
-    {
-      "kind": "fault_route_unverified",
-      "net": "ISNS",
-      "comp": "COMP1",
-      "detail": "the COMP -> HRTIM FLTn source is not verified in the MCU table (hrtim.fault_internal_sources)"
-    }
-  ]
+  "findings": []
 }

@@ -233,3 +233,20 @@ def test_motor_driver_boots_in_renode_and_answers(tmp_path):
     assert res["banner"].startswith("fwe PCB-0018-A ") and res["boot_evt"]
     assert res["replies"][0]["reply"].startswith('OK {"board":"PCB-0018-A"')
     assert res["replies"][1]["reply"].startswith("ERR ")
+
+
+def test_scaffold_picks_the_hrtim_boost_template_from_the_pin_roles(tmp_path):
+    from test_pinmap import g474_workspace
+    ws = g474_workspace(tmp_path)
+    rc, res = run(fw_scaffold, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res
+    assert res["template"] == "stm32g474-boost"
+    assert "src/hrtim.c" in res["copied"] and "src/pwm.c" not in res["copied"]
+
+
+def test_scaffold_keeps_the_g431_template_without_hrtim_pins(tmp_path):
+    ws = motor_fixture(tmp_path)
+    rc, res = run(fw_scaffold, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res
+    assert res["template"] == "stm32g4"
+    assert "src/pwm.c" in res["copied"] and "src/hrtim.c" not in res["copied"]

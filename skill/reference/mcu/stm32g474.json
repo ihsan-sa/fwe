@@ -857,10 +857,17 @@
    ]
   },
   "fault_internal_sources": {
-   "status": "unverified",
-   "verified_against": null,
-   "map": {},
-   "comment": "Which COMPx output drives each FLTn internally (FLTxSRC) is given only by RM0440's HRTIM fault-input table. It was not reachable from the box on 2026-10-08 (st.com timed out), so map is empty and pinmap reports every COMP->FLT route as unverified rather than guess. Fill map as {\"FLT1\": \"COMPx\", ...} with verified_against naming the RM0440 revision, section and table."
+   "status": "verified",
+   "verified_against": "RM0440 Rev 9, section 28.3.2 Table 228 (Fault inputs, p.888) and section 11.3.9 Table 84 (Interconnect 11, p.395), FLTxSRC[1:0]=01",
+   "map": {
+    "FLT1": "COMP2",
+    "FLT2": "COMP4",
+    "FLT3": "COMP6",
+    "FLT4": "COMP1",
+    "FLT5": "COMP3",
+    "FLT6": "COMP5"
+   },
+   "comment": "The on-chip source each FLTn takes when HRTIM_FLTINR1/2 FLTxSRC[1:0]=01. Both RM0440 tables give the same column, and Table 228's external-pin column (PA12, PA15, PB10, PB11, PB0/PC7, PC10) agrees with fault_inputs above. Checked 2026-10-08 against ST's PDF."
   }
  }
 }

@@ -19,8 +19,9 @@ enum {
     TRIP_OC     = 1u << 3, /* inductor over-current, software mirror */
     TRIP_VIN_UV = 1u << 4, /* input under the operating range */
     TRIP_VIN_OV = 1u << 5, /* input over the operating range */
-    TRIP_OT     = 1u << 6, /* half-bridge over temperature */
-    TRIP_COUNT  = 7
+    TRIP_OT     = 1u << 6, /* half-bridge over temperature (or a broken NTC) */
+    TRIP_ADC    = 1u << 7, /* the control sample stopped while switching */
+    TRIP_COUNT  = 8
 };
 
 typedef struct {
