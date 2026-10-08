@@ -7,6 +7,7 @@ toolchain is absent; the sim case also skips without the pinned Renode.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -175,6 +176,7 @@ def test_motor_driver_manifest_is_derived_and_goes_stale(tmp_path):
     assert m["safety"]["pwm_hz"] == 20000
     assert m["safety"]["pwm_at_reset"] == "off" and m["safety"]["vbus_ov_v"] > m["safety"]["vbus_uv_v"]
     assert m["verified"] == {"build": True, "host_tests": True, "sim": None, "hardware": False}
+    assert "trips" not in m and "pwm" not in m and "dead_time_ns" not in m["safety"]
     assert run(fw_manifest, ["--workspace", str(ws), "--check"], tmp_path)[0] == 0
     # a stage's own command, declared on its dispatch line, reaches the
     # manifest with its args and safe flag, and --check accepts the rewrite
@@ -233,3 +235,51 @@ def test_motor_driver_boots_in_renode_and_answers(tmp_path):
     assert res["banner"].startswith("fwe PCB-0018-A ") and res["boot_evt"]
     assert res["replies"][0]["reply"].startswith('OK {"board":"PCB-0018-A"')
     assert res["replies"][1]["reply"].startswith("ERR ")
+
+
+def test_scaffold_picks_the_hrtim_boost_template_from_the_pin_roles(tmp_path):
+    from test_pinmap import g474_workspace
+    ws = g474_workspace(tmp_path)
+    rc, res = run(fw_scaffold, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res
+    assert res["template"] == "stm32g474-boost"
+    assert "src/hrtim.c" in res["copied"] and "src/pwm.c" not in res["copied"]
+
+
+def test_scaffold_keeps_the_g431_template_without_hrtim_pins(tmp_path):
+    ws = motor_fixture(tmp_path)
+    rc, res = run(fw_scaffold, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res
+    assert res["template"] == "stm32g4"
+    assert "src/pwm.c" in res["copied"] and "src/hrtim.c" not in res["copied"]
+
+
+def test_g474_boost_builds_and_its_manifest_carries_the_pwm_and_the_trips(tmp_path):
+    from test_pinmap import g474_workspace
+    _toolchain_or_skip()
+    ws = g474_workspace(tmp_path)
+    assert run(fw_scaffold, ["--workspace", str(ws)], tmp_path)[0] == 0
+    rc, res = run(fw_build, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res.get("log_tail") or res
+    assert res["stage"] == "boost"          # the template's FWE_STAGE, not "bringup"
+    rc, res = run(fw_manifest, ["--workspace", str(ws)], tmp_path)
+    assert rc == 0, res
+    m = res["manifest"]
+    assert (m["board"], m["stage"], m["mcu"]["part"]) == ("PCB-0026-A", "boost", "STM32G474CBT6")
+    s = m["safety"]
+    assert (s["pwm_hz"], s["dead_time_ns"], s["vout_ov_v"], s["i_trip_a"]) == (1000000, 10, 55.0, 17.0)
+    assert s["vbus_uv_v"] < 12.0 < 24.0 < s["vbus_ov_v"]   # the input supply's limits
+    assert [o["role"] for o in m["pwm"]["outputs"]] == ["hrtim_lo", "hrtim_hi"]
+    trips = {t["name"]: t for t in m["trips"]}
+    assert (trips["ovp"]["comparator"], trips["ovp"]["fault_input"], trips["ovp"]["threshold"]) == \
+        ("COMP3", "FLT5", 55.0)
+    assert (trips["ocp"]["comparator"], trips["ocp"]["fault_input"], trips["ocp"]["threshold"]) == \
+        ("COMP1", "FLT4", 17.0)
+    evt = 'EVT {"trip":{"new":["ovp_hw","ov"],"latched":["ovp_hw","ov"],"vout_v":55.2}}'
+    assert re.match(trips["ovp"]["evt_regex"], evt) and not re.match(trips["ocp"]["evt_regex"], evt)
+    assert {c["name"] for c in m["commands"] if not c["safe"]} == {"arm", "duty"}
+    assert run(fw_manifest, ["--workspace", str(ws), "--check"], tmp_path)[0] == 0
+    cfg = ws / "firmware" / "config" / "fw_config.h"
+    cfg.write_text(cfg.read_text().replace("VOUT_OV_V        55.0f", "VOUT_OV_V        56.0f"))
+    rc, res = run(fw_manifest, ["--workspace", str(ws), "--check"], tmp_path)
+    assert (rc, res["stale"]) == (1, ["safety", "trips"])

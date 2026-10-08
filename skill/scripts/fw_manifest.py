@@ -7,7 +7,9 @@ console's dispatch in src/console.c (with each reply's top-level keys; a
 command's args and safe flag come from a `/* fwe-cmd args="..." safe=yes|no */`
 comment on its dispatch line, else from the KNOWN table; a command in neither
 is an error, so every command in the manifest carries its arguments),
-the safety limits from config/fw_config.h,
+the safety limits from config/fw_config.h (the boost template's set when a
+pin role starts "hrtim_", plus its `pwm` outputs and comparator `trips` from
+the pin map's fault routes),
 the version and stage from the last build's CMake cache, and the artifacts'
 sha256 from firmware/build/. Run it after fw_build.py.
 
@@ -56,6 +58,16 @@ HOOKS = [("version", r'^OK \{"board":"{board}"'), ("status", "^OK "),
 LIMITS = {"i_trip_a": "I_TRIP_A", "i_limit_a": "I_LIMIT_A", "vbus_ov_v": "VBUS_OV_V",
           "vbus_uv_v": "VBUS_UV_V", "max_duty": "MAX_DUTY", "pwm_hz": "PWM_FREQ_HZ",
           "baud": "UART_BAUD"}
+# The HRTIM boost template (a pin role starting "hrtim_", as fw_scaffold.py
+# picks it). vbus_* stay the input-supply limits, as /npie reads them on the
+# motor boards; the output side gets its own keys.
+BOOST_LIMITS = {"i_trip_a": "I_TRIP_A", "i_limit_a": "I_LIMIT_A", "vbus_ov_v": "VIN_OV_V",
+                "vbus_uv_v": "VIN_UV_V", "vout_target_v": "VOUT_TARGET_V",
+                "vout_ov_v": "VOUT_OV_V", "max_duty": "D_MAX", "pwm_hz": "PWM_FREQ_HZ",
+                "dead_time_ns": "DEADTIME_NS", "baud": "UART_BAUD"}
+INTS = ("baud", "pwm_hz", "dead_time_ns")
+# A hardware trip's threshold: the safety key it is set from, and its unit.
+TRIP_LIMIT = {"ovp": ("vout_ov_v", "V"), "ocp": ("i_trip_a", "A")}
 
 
 class Missing(Exception):
@@ -70,14 +82,14 @@ def sha256(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def config(fw: Path) -> dict:
+def config(fw: Path, limits: dict) -> dict:
     text = (fw / "config" / "fw_config.h").read_text(encoding="utf-8")
     out = {}
-    for key, macro in LIMITS.items():
+    for key, macro in limits.items():
         m = re.search(rf"^#define\s+{macro}\s+([0-9.]+)[uf]?\b", text, re.M)
         if not m:
             raise Missing(f"config/fw_config.h has no {macro}")
-        out[key] = int(m.group(1)) if key in ("baud", "pwm_hz") else float(m.group(1))
+        out[key] = int(m.group(1)) if key in INTS else float(m.group(1))
     return out
 
 
@@ -146,6 +158,29 @@ def connector(nl: pinmap.Netlist, mcu: str, net: str) -> tuple[str | None, str |
     return None, None
 
 
+def hrtim(pm: dict, cfg: dict) -> dict:
+    """The boost's PWM outputs and its comparator -> HRTIM fault trips, for
+    /npie to scope the switching and provoke each trip. A trip forces both
+    outputs inactive in hardware and latches until `clear`; the firmware
+    reports it as an EVT whose "new" list names `<trip>_hw`."""
+    outs = [{"pin": p["pin"], "net": p["net"], "role": p["role"]}
+            for p in pm["pins"] if p["role"].startswith("hrtim_")]
+    trips = []
+    for r in pm.get("fault_routes", []):
+        key, unit = TRIP_LIMIT.get(r["trip"], (None, None))
+        if key is None:
+            raise pinmap.Error(f"fault route {r['trip']} has no threshold key in TRIP_LIMIT")
+        trips.append({"name": r["trip"], "kind": "hardware", "sense_net": r["net"],
+                      "pin": r["pin"], "comparator": r["comp"], "fault_input": r["fault"],
+                      "threshold": cfg[key], "unit": unit, "outputs": "inactive",
+                      "latched": True, "clear": "clear",
+                      "evt_regex": rf'^EVT {{"trip":{{"new":\[[^]]*"{r["trip"]}_hw"'})
+    pwm = {"timer": "HRTIM Timer A", "outputs": outs, "freq_hz": cfg["pwm_hz"],
+           "dead_time_ns": cfg["dead_time_ns"], "max_duty": cfg["max_duty"],
+           "safe_state": "both outputs low"}
+    return {"pwm": pwm, "trips": trips}
+
+
 def derive(ws: Path) -> dict:
     fw = ws / "firmware"
     pm = pinmap.build(ws, None)
@@ -162,9 +197,10 @@ def derive(ws: Path) -> dict:
     arts = {n: build / f"fw.{n}" for n in ("elf", "bin", "hex")}
     if not all(p.is_file() for p in arts.values()):
         raise Missing("no firmware/build/fw.{elf,bin,hex}: run fw_build.py")
-    cfg, bc = config(fw), cache(build)
+    boost = any(p["role"].startswith("hrtim_") for p in pm["pins"])
+    cfg, bc = config(fw, BOOST_LIMITS if boost else LIMITS), cache(build)
     board = pm["board"]
-    return {
+    man = {
         "schema": SCHEMA, "board": board,
         "mcu": {"part": pm["mcu"]["part"], "core": "cortex-m4", "flash_base": "0x08000000"},
         "stage": bc["stage"], "version": bc["version"],
@@ -182,6 +218,9 @@ def derive(ws: Path) -> dict:
         "safety": {"pwm_at_reset": "off", "fault_clear": "clear",
                    **{k: v for k, v in cfg.items() if k != "baud"}},
     }
+    if boost:
+        man.update(hrtim(pm, cfg))
+    return man
 
 
 def main(argv=None) -> int:

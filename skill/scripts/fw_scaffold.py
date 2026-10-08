@@ -5,7 +5,9 @@ Copies templates/<family>/ into <workspace>/firmware/, then runs pinmap.py so
 gen/board_pins.h and pinmap.json match the board's netlist. A file that is
 already in firmware/ is never overwritten: the project is the board's own
 once it exists, and a template change reaches it only through a stage edit.
-The family comes from the MCU the pin map finds (STM32G4 -> stm32g4).
+The template comes from the MCU the pin map finds and the pins it drives:
+an STM32G4 with any pin role starting "hrtim_" (a gate on the high-resolution
+timer) gets stm32g474-boost, any other STM32G4 gets stm32g4.
 
   fw_scaffold.py --workspace PCB-0018-A_bldc-motor-driver
 
@@ -27,6 +29,8 @@ from fwelib import fwenv  # noqa: E402
 
 TEMPLATES = fwenv.SKILL / "templates"
 FAMILY = {"STM32G4": "stm32g4"}
+# family -> (role prefix, template) checked before the family default
+VARIANT = {"stm32g4": ("hrtim_", "stm32g474-boost")}
 
 
 def run_pinmap(ws: Path, *extra: str) -> tuple[int, dict]:
@@ -44,6 +48,9 @@ def scaffold(ws: Path) -> tuple[int, dict]:
         return 2, {"ok": False, "error": f"pinmap: {pm.get('error')}"}
     part = pm["mcu"]["part"]
     fam = next((v for k, v in FAMILY.items() if part.startswith(k)), None)
+    var = VARIANT.get(fam)
+    if var and any(str(p.get("role", "")).startswith(var[0]) for p in pm.get("pins", [])):
+        fam = var[1]
     if not fam or not (TEMPLATES / fam).is_dir():
         return 2, {"ok": False, "error": f"no /fwe template for {part}"}
     src, fw = TEMPLATES / fam, ws / "firmware"

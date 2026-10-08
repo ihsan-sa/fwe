@@ -81,6 +81,35 @@ input, and it sees positive phase current only. Negative over-current is
 caught in software against `i_limit_a` on |i|, so a
 /npie step that tests the trip must drive current in the positive direction.
 
+## The HRTIM boost (stm32g474-boost template)
+
+A board whose pin map has an `hrtim_` role (PCB-0026-A) gets the boost
+template, and its manifest differs in three places. `stage` is `boost`.
+`safety` keeps `vbus_uv_v`/`vbus_ov_v` as the input supply's limits, as on
+the motor boards, and adds `vout_target_v`, `vout_ov_v` and `dead_time_ns`;
+`max_duty` is the boost's `D_MAX`. And two keys are added:
+
+```json
+"pwm": {"timer": "HRTIM Timer A", "freq_hz": 1000000, "dead_time_ns": 10,
+        "max_duty": 0.82, "safe_state": "both outputs low",
+        "outputs": [{"pin": "PA8", "net": "PWM_LO", "role": "hrtim_lo"},
+                    {"pin": "PA9", "net": "PWM_HI", "role": "hrtim_hi"}]},
+"trips": [{"name": "ovp", "kind": "hardware", "sense_net": "VOUT_SNS", "pin": "PA0",
+           "comparator": "COMP3", "fault_input": "FLT5", "threshold": 55.0, "unit": "V",
+           "outputs": "inactive", "latched": true, "clear": "clear",
+           "evt_regex": "^EVT {\"trip\":{\"new\":\\[[^]]*\"ovp_hw\""}]
+```
+
+`trips` has one entry per comparator -> HRTIM fault route in the pin map.
+The comparator forces both outputs inactive with no firmware in the path,
+the firmware latches the fault, reports it once as an `EVT` matching
+`evt_regex`, shows it in `status`, and `clear` releases it only once the
+comparator has fallen. `threshold` is the trip level at the sense net's
+source (output volts, inductor amps), from `config/fw_config.h`.
+`commands`: `arm` starts the soft start into the voltage loop, and
+`duty <d>` drives an open-loop duty for the bench (both `safe: false`;
+`duty 0` holds the high side on, so a charged output feeds back to the input).
+
 ## Test hooks
 
 `test_hooks` are what /npie runs unattended after flashing: a `send` line, a

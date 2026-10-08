@@ -172,3 +172,73 @@ def test_generated_header_compiles(tmp_path):
                         "-I", str(ws / "firmware" / "gen"), "-o", str(tmp_path / "use.o")],
                        capture_output=True, text=True)
     assert p.returncode == 0, p.stderr
+
+
+GOLD = ROOT / "tests" / "golden" / "pinmap"
+G474_WS = "PCB-0026-A_gan-boost-48v"
+
+
+def g474_workspace(tmp: Path) -> Path:
+    """A scratch workspace holding the golden copy of PCB-0026-A's netlist."""
+    ws = tmp / G474_WS
+    (ws / "kicad").mkdir(parents=True)
+    (ws / "kicad" / f"{G474_WS}.net").write_bytes((GOLD / f"{G474_WS}.net").read_bytes())
+    return ws
+
+
+def test_golden_g474_boost_pinmap(tmp_path, capsys):
+    ws = g474_workspace(tmp_path)
+    assert pinmap.main(["--workspace", str(ws)]) == 0
+    capsys.readouterr()
+    fw = ws / "firmware"
+    assert (fw / "pinmap.json").read_text() == (GOLD / "PCB-0026-A.pinmap.json").read_text()
+    assert (fw / "gen" / "board_pins.h").read_text() == \
+        (GOLD / "PCB-0026-A.board_pins.h").read_text()
+    m = json.loads((fw / "pinmap.json").read_text())
+    assert m["mcu"]["part"] == "STM32G474CBT6" and m["mcu"]["table"] == "stm32g474"
+    pins = by_net(m)
+    assert pins["PWM_LO"]["function"] == {"name": "HRTIM1_CHA1", "af": 13,
+                                          "peripheral": "HRTIM1_TIMA", "output": 1}
+    assert pins["PWM_HI"]["function"]["name"] == "HRTIM1_CHA2"
+    assert m["analog"]["VOUT_SNS"]["ratio"] == 21.0      # 100k + 100k over 10k, past a 100R filter
+    assert m["analog"]["ISNS"]["volts_per_amp"] == pytest.approx(0.05)
+    assert m["analog"]["NTC_SNS"]["beta"] == 3380
+    assert [(r["trip"], r["comp"], r["fault"]) for r in m["fault_routes"]] == \
+        [("ovp", "COMP3", "FLT5"), ("ocp", "COMP1", "FLT4")]  # RM0440 Rev 9 Table 228
+    assert m["findings"] == []
+
+
+_load_mcu_table = pinmap.load_mcu_table
+
+
+def _g474_table(status: str) -> tuple[str, dict]:
+    fam, table = _load_mcu_table("STM32G474CBT6")
+    table = json.loads(json.dumps(table))
+    # FLT7/FLT8 do not exist on the G4: fixture values, not the RM0440 mapping.
+    table["hrtim"]["fault_internal_sources"].update(
+        status=status, verified_against="fixture", map={"FLT7": "COMP1", "FLT8": "COMP3"})
+    return fam, table
+
+
+def test_fault_route_is_named_only_from_a_verified_table(tmp_path, monkeypatch):
+    ws = g474_workspace(tmp_path)
+    monkeypatch.setattr(pinmap, "load_mcu_table", lambda part: _g474_table("verified"))
+    m = pinmap.build(ws, None)
+    assert [(r["trip"], r["fault"]) for r in m["fault_routes"]] == [("ovp", "FLT8"), ("ocp", "FLT7")]
+    assert m["findings"] == []
+    assert "#define TRIP_OCP_FLT 7u" in pinmap.header(m)
+
+
+def test_fault_route_from_an_unverified_table_is_a_finding(tmp_path, monkeypatch):
+    ws = g474_workspace(tmp_path)
+    monkeypatch.setattr(pinmap, "load_mcu_table", lambda part: _g474_table("unverified"))
+    m = pinmap.build(ws, None)
+    assert [r["fault"] for r in m["fault_routes"]] == [None, None]
+    assert [f["comp"] for f in m["findings"] if f["kind"] == "fault_route_unverified"] == \
+        ["COMP3", "COMP1"]
+    assert "TRIP_OCP_FLT" not in pinmap.header(m)
+
+
+def test_a_board_without_hrtim_has_no_fault_routes(tmp_path):
+    m = pinmap.build(motor_fixture(tmp_path), None)
+    assert "fault_routes" not in m

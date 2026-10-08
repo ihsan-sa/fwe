@@ -26,7 +26,7 @@
     {"name": "cmsis-device-g4", "version": "v1.2.6",
      "repo": "https://github.com/STMicroelectronics/cmsis-device-g4",
      "commit": "25664ddc3a7624ae9627ae8c4c672073dc5b2539",
-     "paths": ["Include", "Source/Templates/gcc/startup_stm32g431xx.s", "Source/Templates/system_stm32g4xx.c"]},
+     "paths": ["Include", "Source/Templates/gcc/startup_stm32g431xx.s", "Source/Templates/gcc/startup_stm32g474xx.s", "Source/Templates/system_stm32g4xx.c"]},
     {"name": "cmsis-core", "version": "5.9.0",
      "repo": "https://github.com/ARM-software/CMSIS_5",
      "commit": "2b7495b8535bdcb306dac29b9ded4cfb679d7e5c",

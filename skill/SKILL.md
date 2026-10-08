@@ -58,7 +58,7 @@ on chip-flow's `bin/eda`, and the bench reuses /vde's cocotblib.
 - `reference/design.md`: goal, boundaries, firmware shape, verification ladder.
 - `reference/manifest.md`: the /fwe -> /npie interface and UART protocol.
 - `reference/toolchain.lock.json`: pinned tools and CMSIS.
-- `reference/mcu/<family>.json`: the MCU pin/AF table the pin map uses.
-- `templates/<family>/`: the project a scaffold starts from (`templates/fpga/` for gateware).
+- `reference/mcu/<part>.json`: the MCU pin/AF table the pin map uses (stm32g431, stm32g474 with HRTIM and COMP -> FLTn).
+- `templates/<family>/`: the project a scaffold starts from (`stm32g4` for the motor boards, `stm32g474-boost` when the pin map has `hrtim_` roles, `fpga/` for gateware).
 - `reference/fpga.md`: the FPGA target, its protocol and its manifest.
 - `LEARNINGS.md` at the repo root, tag `[fwe]`: grep it before you start.
