@@ -66,6 +66,7 @@ ROLES = [
     (r"(\w+)_SW", "button", None),
     (r"SW_(\w+)", "button", None),
     (r"SWDIO|SWCLK", "swd", None),
+    (r"SWO", "swo", None),
     (r"NRST", "reset", None),
     (r"BOOT0", "boot", None),
 ]
@@ -439,6 +440,15 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
             findings.append({"kind": "pin_not_in_table", "pin": io, "table": fam})
         pins.append(p)
     assign_functions(pins, table, findings)
+    for p in pins:
+        if p["role"] == "swo":
+            af = table["pins"].get(p["pin"], {}).get("af", {})
+            name = next((n for n in ("SWO", "TRACESWO") if af.get(n) == 0), None)
+            if name:
+                p["function"] = {"name": name, "af": 0}
+            else:
+                findings.append({"kind": "not_swo_pin", "pin": p["pin"], "net": p["net"],
+                                 "detail": "the pin offers no SWO/TRACESWO at AF0"})
     faults = fault_routes(pins, table, findings)
     analog = {}
     for p in pins:

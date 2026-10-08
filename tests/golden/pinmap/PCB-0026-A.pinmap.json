@@ -2,7 +2,7 @@
   "board": "PCB-0026-A",
   "workspace": "PCB-0026-A_gan-boost-48v",
   "netlist": "kicad/PCB-0026-A_gan-boost-48v.net",
-  "netlist_sha256": "29e528a3f7536cc333330892cace07d2a6bbd644cdbb5d4dc540a73e48cd1b83",
+  "netlist_sha256": "e70d3f4ec7e290d82d574823038a5144d26e5793948b1260e5155b5bf68a289e",
   "mcu": {
     "ref": "U501",
     "part": "STM32G474CBT6",
@@ -248,8 +248,12 @@
     {
       "pin": "PB3",
       "number": 40,
-      "net": null,
-      "role": "unused"
+      "net": "SWO",
+      "role": "swo",
+      "function": {
+        "name": "SWO",
+        "af": 0
+      }
     },
     {
       "pin": "PB4",

@@ -31,7 +31,7 @@ The example below lists three of the eleven bring-up commands.
   "artifact": {"elf": "build/fw.elf", "bin": "build/fw.bin", "hex": "build/fw.hex",
                "sha256": {"elf": "...", "bin": "...", "hex": "..."}},
   "flash": {
-    "interface": "swd", "connector": "J601",
+    "interface": "swd", "connector": "J601",   // + "swo_pin": "PB3" when the board routes SWO
     "commands": {
       "probe-rs": ["probe-rs", "download", "--chip", "STM32G431CBTx", "{elf}"],
       "openocd": ["openocd", "-f", "interface/stlink.cfg", "-f", "target/stm32g4x.cfg",
