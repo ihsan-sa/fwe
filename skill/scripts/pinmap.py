@@ -6,10 +6,14 @@ classifies every MCU pin by the name of the net it sits on (ROLES below). For
 each role it picks the peripheral function from the MCU's pin table
 (reference/mcu/<family>.json, taken from the datasheet): gate-driver inputs
 share one timer with CHn on the high side and CHnN on the low side, Hall and
-encoder inputs share one timer, UART pins share one USART, analog inputs get
-an ADC channel. It also derives the analog scaling from the parts on the
-nets: divider ratios, a current-sense amplifier's gain (from its part
-suffix), reference voltage (from its REF pins' rails) and shunt value.
+encoder inputs share one timer, UART pins share one USART, a half-bridge's
+PWM_HI/PWM_LO pair shares one HRTIM timer, analog inputs get an ADC channel.
+It also derives the analog scaling from the parts on the nets: divider ratios
+(through a series filter resistor and series resistor chains), a
+current-sense amplifier's gain (from its part suffix), reference voltage
+(from its REF pins' rails) and shunt value, an NTC's pull-up and beta. On an
+HRTIM board it lists fault_routes: the comparator on each trip sense pin and,
+once the MCU table's COMP -> FLTn sources are verified, the FLTn it reaches.
 
 Writes <workspace>/firmware/pinmap.json and <workspace>/firmware/gen/board_pins.h.
 With --check it writes nothing and exits 1 when either file differs from what
@@ -17,10 +21,11 @@ the netlist gives now, so a re-spun board fails the firmware build until the
 map is regenerated.
 
 JSON to stdout (or --out): {"ok", "board", "mcu", "pins", "analog", "rails",
-"findings", "files"}. Exit 0 ok, 1 findings or drift (--check), 2 error.
+"fault_routes" (HRTIM boards only), "findings", "files"}. Exit 0 ok, 1 findings or drift (--check), 2 error.
 A finding is anything the map could not derive (an unclassified pin, an
-analog input with no ADC channel, a timer group with no common timer); it is
-reported, never guessed.
+analog input with no ADC channel, a timer group with no common timer, a
+COMP -> FLTn route the MCU table has not verified); it is reported, never
+guessed.
 """
 from __future__ import annotations
 
@@ -45,6 +50,13 @@ ROLES = [
     (r"ISENSE_([A-C])", "i_sense", None),
     (r"VSENSE_([A-C])", "v_phase", None),
     (r"VBUS_SENSE", "v_bus", None),
+    (r"PWM_(HI)", "hrtim_hi", "hrtim"),
+    (r"PWM_(LO)", "hrtim_lo", "hrtim"),
+    (r"ISNS", "i_sense", None),
+    (r"VOUT_SNS", "v_out", None),
+    (r"VIN_SNS", "v_in", None),
+    (r"NTC_SNS", "ntc", None),
+    (r"FAN_PWM", "fan_pwm", "fan"),
     (r"HALL_([A-C])", "hall", "hall"),
     (r"ENC_([AB])", "encoder", "encoder"),
     (r"ENC_(Z)", "encoder_index", None),
@@ -57,7 +69,10 @@ ROLES = [
     (r"NRST", "reset", None),
     (r"BOOT0", "boot", None),
 ]
-ANALOG_ROLES = {"i_sense", "v_phase", "v_bus"}
+ANALOG_ROLES = {"i_sense", "v_phase", "v_bus", "v_out", "v_in", "ntc"}
+DIVIDER_ROLES = {"v_bus", "v_phase", "v_out", "v_in"}
+# Comparator trips a converter routes to an HRTIM fault input, by sense role.
+TRIP = {"i_sense": "ocp", "v_out": "ovp"}
 # Current-sense amplifiers: part prefix -> {suffix: V/V}. Datasheet gains.
 CSA_GAIN = {
     "INA240": {"A1": 20, "A2": 50, "A3": 100, "A4": 200},
@@ -204,6 +219,9 @@ def assign_functions(pins: list[dict], table: dict, findings: list) -> None:
         "hall": (r"(TIM\d+)_CH(\d+)", lambda m, ch: ch == str(PHASE_CH[m["tag"]])),
         "encoder": (r"(TIM\d+)_CH(\d+)", lambda m, ch: ch == {"A": "1", "B": "2"}[m["tag"]]),
         "uart": (r"(U?S?ART\d+)_(TX|RX)", lambda m, ch: ch == m["tag"]),
+        # A half-bridge pair: both outputs of one HRTIM timer (CHx1, CHx2).
+        "hrtim": (r"HRTIM1_CH([A-F])([12])", lambda m, ch: True),
+        "fan": (r"(TIM\d+)_CH(\d+)", lambda m, ch: True),
     }
     for g, members in sorted(groups.items()):
         rx, want = rules[g]
@@ -213,9 +231,16 @@ def assign_functions(pins: list[dict], table: dict, findings: list) -> None:
                              "pins": [m["pin"] for m in members],
                              "detail": f"no single peripheral serves every {g} pin in its role"})
             continue
+        if g == "hrtim" and len({chosen[m["pin"]][0] for m in members}) != len(members):
+            findings.append({"kind": "hrtim_pair_clash", "pins": [m["pin"] for m in members],
+                             "detail": "the half-bridge inputs need different outputs of one timer"})
+            continue
         for m in members:
             name, af = chosen[m["pin"]]
-            m["function"] = {"name": name, "af": af, "peripheral": per}
+            m["function"] = {"name": name, "af": af,
+                             "peripheral": f"HRTIM1_TIM{per}" if g == "hrtim" else per}
+            if g == "hrtim":
+                m["function"]["output"] = int(name[-1])
     for p in pins:
         if p["role"] in ANALOG_ROLES:
             adc = sorted(a for a in table["pins"].get(p["pin"], {}).get("analog", [])
@@ -227,29 +252,92 @@ def assign_functions(pins: list[dict], table: dict, findings: list) -> None:
                 continue
             m = re.fullmatch(r"ADC(\d+)_IN(\d+)", adc[0])
             p["function"] = {"name": adc[0], "adc": int(m.group(1)[0]), "channel": int(m.group(2))}
-            if comp:
+            if comp and p["role"] != "ntc":
                 p["comparator"] = comp[0]
 
 
-def analog_scaling(nl: Netlist, pin: dict, findings: list) -> dict | None:
-    net = pin["net_full"]
-    if pin["role"] in ("v_bus", "v_phase"):
+def _nodes(nl: Netlist, net: str) -> list[tuple[str, str | None]]:
+    """The pin's net, then the far side of each resistor on it: a sense line
+    may reach its divider or pull-up through a series filter resistor.
+    Pairs (node, series resistor or None)."""
+    out = [(net, None)]
+    for ref, rp in nl.refs_on(net):
+        o = nl.other_net(ref, rp) if ref.startswith("R") else None
+        if o and rail_volts(o) is None:
+            out.append((o, ref))
+    return out
+
+
+def _chain(nl: Netlist, ref: str, far: str) -> tuple[list[str], float | None, str]:
+    """Follow resistors in series from ref's far net (through nets that hold
+    only two resistors) to where the chain ends. (parts, ohms, end net)."""
+    parts, total = [ref], ohms(nl.comps[ref]["value"])
+    while total is not None and rail_volts(far) is None:
+        nxt = [(r, p) for r, p in nl.refs_on(far) if r not in parts]
+        if len(nl.refs_on(far)) != 2 or len(nxt) != 1 or not nxt[0][0].startswith("R"):
+            break
+        r, p = nxt[0]
+        o = nl.other_net(r, p)
+        v = ohms(nl.comps[r]["value"])
+        if o is None or v is None:
+            break
+        parts.append(r)
+        total += v
+        far = o
+    return parts, total, far
+
+
+def _divider(nl: Netlist, net: str) -> dict | None:
+    for node, series in _nodes(nl, net):
         top = bot = None
-        for ref, rp in nl.refs_on(net):
-            if not ref.startswith("R"):
-                continue
-            o = nl.other_net(ref, rp)
+        for ref, rp in nl.refs_on(node):
+            o = nl.other_net(ref, rp) if ref.startswith("R") and ref != series else None
             if o is None:
                 continue
             if rail_volts(o) == 0.0:
                 bot = (ref, ohms(nl.comps[ref]["value"]))
             else:
-                top = (ref, ohms(nl.comps[ref]["value"]), short(o))
-        if not (top and bot and top[1] and bot[1]):
+                parts, r, end = _chain(nl, ref, o)
+                top = (parts, r, short(end))
+        if top and bot and top[1] and bot[1]:
+            return {"kind": "divider", "source": top[2], "r_top": top[1], "r_bot": bot[1],
+                    "ratio": round((top[1] + bot[1]) / bot[1], 6), "parts": [*top[0], bot[0]]}
+    return None
+
+
+def _ntc(nl: Netlist, net: str) -> dict | None:
+    """A thermistor to ground with a pull-up to a rail."""
+    for node, series in _nodes(nl, net):
+        up = ntc = None
+        for ref, rp in nl.refs_on(node):
+            o = nl.other_net(ref, rp)
+            if o is None or ref == series:
+                continue
+            value = nl.comps[ref]["value"] or ""
+            if ref.startswith("RT") and rail_volts(o) == 0.0:
+                b = re.search(r"B\s*(\d{4})", value)
+                ntc = (ref, value, ohms(value), int(b.group(1)) if b else None)
+            elif ref.startswith("R") and nl.volts(o):
+                up = (ref, ohms(value), short(o), nl.volts(o))
+        if up and ntc and up[1] and ntc[2] and ntc[3]:
+            return {"kind": "ntc", "ntc": ntc[0], "ntc_part": ntc[1], "r25_ohm": ntc[2],
+                    "beta": ntc[3], "pullup": up[0], "pullup_ohm": up[1], "rail": up[2],
+                    "rail_v": up[3]}
+    return None
+
+
+def analog_scaling(nl: Netlist, pin: dict, findings: list) -> dict | None:
+    net = pin["net_full"]
+    if pin["role"] in DIVIDER_ROLES:
+        d = _divider(nl, net)
+        if not d:
             findings.append({"kind": "no_divider", "net": pin["net"]})
-            return None
-        return {"kind": "divider", "source": top[2], "r_top": top[1], "r_bot": bot[1],
-                "ratio": round((top[1] + bot[1]) / bot[1], 6), "parts": [top[0], bot[0]]}
+        return d
+    if pin["role"] == "ntc":
+        t = _ntc(nl, net)
+        if not t:
+            findings.append({"kind": "no_ntc", "net": pin["net"]})
+        return t
     # i_sense: [MCU] - series R - amp OUT; amp IN+/IN- across a shunt
     for ref, rp in nl.refs_on(net):
         if not ref.startswith("R"):
@@ -287,6 +375,36 @@ def _csa(nl: Netlist, pin: dict, amp: str, series_r: str, findings: list) -> dic
             "volts_per_amp": round(gain * shunt[1], 9), "series_r": series_r}
 
 
+def fault_routes(pins: list[dict], table: dict, findings: list) -> list[dict]:
+    """COMP -> HRTIM fault routes, for a board whose switches an HRTIM drives:
+    the comparator on each trip sense pin, and the FLTn input that comparator
+    reaches inside the chip, read from the MCU table's fault_internal_sources.
+    The FLTn number is reported only once that table is verified against the
+    reference manual; until then each route is a finding, never a guess."""
+    if not any(p["role"].startswith("hrtim_") for p in pins):
+        return []
+    src = table.get("hrtim", {}).get("fault_internal_sources", {})
+    by_comp = {c: f for f, c in src.get("map", {}).items()}
+    routes = []
+    for p in pins:
+        if p["role"] not in TRIP:
+            continue
+        if not p.get("comparator"):
+            findings.append({"kind": "no_trip_comparator", "pin": p["pin"], "net": p["net"],
+                             "detail": f"{TRIP[p['role']]} needs a COMPx_INP on this pin"})
+            continue
+        comp = p["comparator"].split("_")[0]
+        flt = by_comp.get(comp) if src.get("status") == "verified" else None
+        routes.append({"trip": TRIP[p["role"]], "net": p["net"], "pin": p["pin"],
+                       "comp": comp, "fault": flt,
+                       "verified_against": src.get("verified_against") if flt else None})
+        if not flt:
+            findings.append({"kind": "fault_route_unverified", "net": p["net"], "comp": comp,
+                             "detail": "the COMP -> HRTIM FLTn source is not verified in the MCU "
+                                       "table (hrtim.fault_internal_sources)"})
+    return routes
+
+
 def build(ws: Path, mcu_ref: str | None) -> dict:
     nets = sorted((ws / "kicad").glob("*.net"))
     if len(nets) != 1:
@@ -321,6 +439,7 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
             findings.append({"kind": "pin_not_in_table", "pin": io, "table": fam})
         pins.append(p)
     assign_functions(pins, table, findings)
+    faults = fault_routes(pins, table, findings)
     analog = {}
     for p in pins:
         if p["role"] in ANALOG_ROLES:
@@ -340,7 +459,7 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
             "netlist_sha256": hashlib.sha256(netfile.read_bytes()).hexdigest(),
             "mcu": {"ref": mcu, "part": part, "table": fam, "source": table.get("source")},
             "pins": pins, "power_pins": power, "rails": rails, "analog": analog,
-            "findings": findings}
+            **({"fault_routes": faults} if faults else {}), "findings": findings}
 
 
 def _c(name: str) -> str:
@@ -370,6 +489,10 @@ def header(m: dict) -> str:
         f = p.get("function", {})
         if "af" in f:
             out.append(f"#define {n}_AF {f['af']}u /* {f['name']} */")
+        if "output" in f:
+            out.append(f"#define {n}_HRTIM_TIMER {ord(f['peripheral'][-1]) - ord('A')}u "
+                       f"/* {f['peripheral']} */")
+            out.append(f"#define {n}_HRTIM_OUT {f['output']}u")
         if "adc" in f:
             out.append(f"#define {n}_ADC {f['adc']}u")
             out.append(f"#define {n}_ADC_CH {f['channel']}u /* {f['name']} */")
@@ -388,10 +511,23 @@ def header(m: dict) -> str:
         if a["kind"] == "divider":
             out.append(f"#define {n}_RATIO {_f(a['ratio'])} /* {a['source']}: "
                        f"{a['r_top']:g}/{a['r_bot']:g} ohm */")
+        elif a["kind"] == "ntc":
+            out.append(f"#define {n}_PULLUP_OHM {_f(a['pullup_ohm'])} /* {a['pullup']} to {a['rail']} */")
+            out.append(f"#define {n}_R25_OHM {_f(a['r25_ohm'])} /* {a['ntc']} {a['ntc_part']} */")
+            out.append(f"#define {n}_BETA {_f(a['beta'])}")
         else:
             out.append(f"#define {n}_GAIN {_f(a['gain_v_per_v'])} /* {a['amp']} {a['amp_part']} */")
             out.append(f"#define {n}_REF_V {_f(a['ref_v'])}")
             out.append(f"#define {n}_SHUNT_OHM {_f(a['shunt_ohm'])} /* {a['shunt']} */")
+    for r in m.get("fault_routes", []):
+        n = _c(r["net"])
+        out.append("")
+        out.append(f"/* {r['trip']}: {r['net']} -> {r['comp']} -> HRTIM "
+                   f"{r['fault'] or 'FLTn UNVERIFIED (pinmap finding)'} */")
+        out.append(f"#define TRIP_{r['trip'].upper()}_COMP {r['comp'][4:]}u")
+        if r["fault"]:
+            out.append(f"#define TRIP_{r['trip'].upper()}_FLT {r['fault'][3:]}u "
+                       f"/* {r['verified_against']} */")
     out += ["", "#endif /* BOARD_PINS_H */", ""]
     return "\n".join(out)
 

@@ -5,7 +5,8 @@ Reads reference/toolchain.lock.json. Each tarball is downloaded into
 <tools>/dl/, its sha256 checked against the lock (a mismatch is an error and
 nothing is extracted), and unpacked into <tools>/<name>-<version>/. Each
 source is a sparse, shallow git fetch of the pinned commit into
-<tools>/src/<name>-<version>/. <tools> is FWE_TOOLS_DIR, default
+<tools>/src/<name>-<version>/, re-fetched when the lock's commit or paths
+change. <tools> is FWE_TOOLS_DIR, default
 ~/.local/fwe-tools. Nothing needs root; no apt, no containers.
 
 Usage:
@@ -79,10 +80,15 @@ def _install_tarball(entry: dict) -> str:
     return f"unpacked {tgz.name}"
 
 
+def _marker(entry: dict) -> str:
+    """The pinned commit and paths: a lock that adds a path re-fetches the tree."""
+    return "\n".join([entry["commit"], *entry["paths"]]) + "\n"
+
+
 def _source_ok(entry: dict) -> bool:
     root = fwenv.source_root(entry)
     return (root / ".fwe-commit").is_file() and \
-        (root / ".fwe-commit").read_text().strip() == entry["commit"]
+        (root / ".fwe-commit").read_text() == _marker(entry)
 
 
 def _install_source(entry: dict) -> str:
@@ -105,7 +111,7 @@ def _install_source(entry: dict) -> str:
                           text=True).stdout.strip()
     if head != entry["commit"]:
         raise RuntimeError(f"checked out {head}, lock says {entry['commit']}")
-    (root / ".fwe-commit").write_text(entry["commit"] + "\n")
+    (root / ".fwe-commit").write_text(_marker(entry))
     return f"checked out {entry['commit'][:12]}"
 
 

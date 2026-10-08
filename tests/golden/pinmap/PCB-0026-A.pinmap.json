@@ -1,0 +1,398 @@
+{
+  "board": "PCB-0026-A",
+  "workspace": "PCB-0026-A_gan-boost-48v",
+  "netlist": "kicad/PCB-0026-A_gan-boost-48v.net",
+  "netlist_sha256": "29e528a3f7536cc333330892cace07d2a6bbd644cdbb5d4dc540a73e48cd1b83",
+  "mcu": {
+    "ref": "U501",
+    "part": "STM32G474CBT6",
+    "table": "stm32g474",
+    "source": "ST STM32_open_pin_data (github.com/STMicroelectronics/STM32_open_pin_data, commit 7d1f1514ed5583ec5007ad91236b4e1d377295b1): mcu/STM32G474C(B-C-E)Tx.xml for the pins and their signals, mcu/IP/GPIO-STM32G47x_gpio_v1_0_Modes.xml for the AF numbers; spot-checked against ST datasheet DS12288 Rev 4 (LCSC C730123.pdf) Table 13 (PA8/PA9 AF13 HRTIM1_CHA1/CHA2, PB6 AF12 HRTIM1_SCIN). ADC1_INn and ADC2_INn on one pin are written ADC12_INn as the datasheet does; SYS_/RCC_ prefixes dropped and debug names split at the dash, as in stm32g431.json"
+  },
+  "pins": [
+    {
+      "pin": "PC13",
+      "number": 2,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PC14",
+      "number": 3,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PC15",
+      "number": 4,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PF0",
+      "number": 5,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PF1",
+      "number": 6,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PG10",
+      "number": 7,
+      "net": "NRST",
+      "role": "reset"
+    },
+    {
+      "pin": "PA0",
+      "number": 8,
+      "net": "VOUT_SNS",
+      "role": "v_out",
+      "function": {
+        "name": "ADC12_IN1",
+        "adc": 1,
+        "channel": 1
+      },
+      "comparator": "COMP3_INP"
+    },
+    {
+      "pin": "PA1",
+      "number": 9,
+      "net": "ISNS",
+      "role": "i_sense",
+      "function": {
+        "name": "ADC12_IN2",
+        "adc": 1,
+        "channel": 2
+      },
+      "comparator": "COMP1_INP"
+    },
+    {
+      "pin": "PA2",
+      "number": 10,
+      "net": "UART_TX",
+      "role": "uart_tx",
+      "tag": "TX",
+      "function": {
+        "name": "USART2_TX",
+        "af": 7,
+        "peripheral": "USART2"
+      }
+    },
+    {
+      "pin": "PA3",
+      "number": 11,
+      "net": "UART_RX",
+      "role": "uart_rx",
+      "tag": "RX",
+      "function": {
+        "name": "USART2_RX",
+        "af": 7,
+        "peripheral": "USART2"
+      }
+    },
+    {
+      "pin": "PA4",
+      "number": 12,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA5",
+      "number": 13,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA6",
+      "number": 14,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA7",
+      "number": 15,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB0",
+      "number": 16,
+      "net": "VIN_SNS",
+      "role": "v_in",
+      "function": {
+        "name": "ADC1_IN15",
+        "adc": 1,
+        "channel": 15
+      },
+      "comparator": "COMP4_INP"
+    },
+    {
+      "pin": "PB1",
+      "number": 17,
+      "net": "NTC_SNS",
+      "role": "ntc",
+      "function": {
+        "name": "ADC1_IN12",
+        "adc": 1,
+        "channel": 12
+      }
+    },
+    {
+      "pin": "PB2",
+      "number": 18,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB10",
+      "number": 22,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB11",
+      "number": 25,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB12",
+      "number": 26,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB13",
+      "number": 27,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB14",
+      "number": 28,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB15",
+      "number": 29,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA8",
+      "number": 30,
+      "net": "PWM_LO",
+      "role": "hrtim_lo",
+      "tag": "LO",
+      "function": {
+        "name": "HRTIM1_CHA1",
+        "af": 13,
+        "peripheral": "HRTIM1_TIMA",
+        "output": 1
+      }
+    },
+    {
+      "pin": "PA9",
+      "number": 31,
+      "net": "PWM_HI",
+      "role": "hrtim_hi",
+      "tag": "HI",
+      "function": {
+        "name": "HRTIM1_CHA2",
+        "af": 13,
+        "peripheral": "HRTIM1_TIMA",
+        "output": 2
+      }
+    },
+    {
+      "pin": "PA10",
+      "number": 32,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA11",
+      "number": 33,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA12",
+      "number": 34,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PA13",
+      "number": 37,
+      "net": "SWDIO",
+      "role": "swd"
+    },
+    {
+      "pin": "PA14",
+      "number": 38,
+      "net": "SWCLK",
+      "role": "swd"
+    },
+    {
+      "pin": "PA15",
+      "number": 39,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB3",
+      "number": 40,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB4",
+      "number": 41,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB5",
+      "number": 42,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB6",
+      "number": 43,
+      "net": "FAN_PWM",
+      "role": "fan_pwm",
+      "function": {
+        "name": "TIM4_CH1",
+        "af": 2,
+        "peripheral": "TIM4"
+      }
+    },
+    {
+      "pin": "PB7",
+      "number": 44,
+      "net": null,
+      "role": "unused"
+    },
+    {
+      "pin": "PB8",
+      "number": 45,
+      "net": "BOOT0",
+      "role": "boot"
+    },
+    {
+      "pin": "PB9",
+      "number": 46,
+      "net": null,
+      "role": "unused"
+    }
+  ],
+  "power_pins": {
+    "+3V3": [
+      "VBAT",
+      "VDD",
+      "VDD",
+      "VDD"
+    ],
+    "GND": [
+      "VSSA",
+      "VSS",
+      "VSS",
+      "VSS"
+    ],
+    "VDDA": [
+      "VREF+",
+      "VDDA"
+    ]
+  },
+  "rails": {
+    "+3V3": 3.3,
+    "GND": 0.0,
+    "VDDA": 3.3
+  },
+  "analog": {
+    "VOUT_SNS": {
+      "kind": "divider",
+      "source": "+48V",
+      "r_top": 200000.0,
+      "r_bot": 10000.0,
+      "ratio": 21.0,
+      "parts": [
+        "R310",
+        "R302",
+        "R303"
+      ]
+    },
+    "ISNS": {
+      "kind": "current",
+      "amp": "U301",
+      "amp_part": "INA240A2",
+      "gain_v_per_v": 50,
+      "ref_v": 1.65,
+      "shunt": "R101",
+      "shunt_ohm": 0.001,
+      "volts_per_amp": 0.05,
+      "series_r": "R301"
+    },
+    "VIN_SNS": {
+      "kind": "divider",
+      "source": "VIN",
+      "r_top": 100000.0,
+      "r_bot": 10000.0,
+      "ratio": 11.0,
+      "parts": [
+        "R305",
+        "R306"
+      ]
+    },
+    "NTC_SNS": {
+      "kind": "ntc",
+      "ntc": "RT201",
+      "ntc_part": "10k NTC B3380",
+      "r25_ohm": 10000.0,
+      "beta": 3380,
+      "pullup": "R308",
+      "pullup_ohm": 10000.0,
+      "rail": "+3V3",
+      "rail_v": 3.3
+    }
+  },
+  "fault_routes": [
+    {
+      "trip": "ovp",
+      "net": "VOUT_SNS",
+      "pin": "PA0",
+      "comp": "COMP3",
+      "fault": null,
+      "verified_against": null
+    },
+    {
+      "trip": "ocp",
+      "net": "ISNS",
+      "pin": "PA1",
+      "comp": "COMP1",
+      "fault": null,
+      "verified_against": null
+    }
+  ],
+  "findings": [
+    {
+      "kind": "fault_route_unverified",
+      "net": "VOUT_SNS",
+      "comp": "COMP3",
+      "detail": "the COMP -> HRTIM FLTn source is not verified in the MCU table (hrtim.fault_internal_sources)"
+    },
+    {
+      "kind": "fault_route_unverified",
+      "net": "ISNS",
+      "comp": "COMP1",
+      "detail": "the COMP -> HRTIM FLTn source is not verified in the MCU table (hrtim.fault_internal_sources)"
+    }
+  ]
+}
