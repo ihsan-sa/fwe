@@ -189,6 +189,7 @@ def derive(ws: Path) -> dict:
     by_role = {p["role"]: p for p in pm["pins"]}
     swd = next((p for p in pm["pins"] if p["role"] == "swd"), None)
     swd_j = connector(nl, mcu, swd["net"])[0] if swd else None
+    swo = by_role.get("swo")
     tx, rx = by_role.get("uart_tx"), by_role.get("uart_rx")
     tx_j, tx_pin = connector(nl, mcu, tx["net"]) if tx else (None, None)
     rx_pin = connector(nl, mcu, rx["net"])[1] if rx else None
@@ -206,7 +207,8 @@ def derive(ws: Path) -> dict:
         "stage": bc["stage"], "version": bc["version"],
         "artifact": {**{n: f"build/fw.{n}" for n in arts},
                      "sha256": {n: sha256(p) for n, p in arts.items()}},
-        "flash": {"interface": "swd", "connector": swd_j, "commands": {
+        "flash": {"interface": "swd", "connector": swd_j,
+                  **({"swo_pin": swo["pin"]} if swo else {}), "commands": {
             "probe-rs": ["probe-rs", "download", "--chip", pm["mcu"]["part"][:11] + "Tx", "{elf}"],
             "openocd": ["openocd", "-f", "interface/stlink.cfg", "-f", "target/stm32g4x.cfg",
                         "-c", "program {elf} verify reset exit"]}},

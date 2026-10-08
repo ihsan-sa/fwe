@@ -1,8 +1,8 @@
 (export
 	(version "E")
 	(design
-		(source "/home/ihsan/.cc/worktrees/boards/pcb0026-gan-boost/PCB-0026-A_gan-boost-48v/kicad/PCB-0026-A_gan-boost-48v.kicad_sch")
-		(date "2026-10-08T02:06:37")
+		(source "/home/ihsan/.cc/worktrees/boards/stdc14-0026/PCB-0026-A_gan-boost-48v/kicad/PCB-0026-A_gan-boost-48v.kicad_sch")
+		(date "2026-10-08T10:31:44")
 		(tool "Eeschema 10.0.6-10.0.6~ubuntu26.04.1")
 		(sheet
 			(number "1")
@@ -5733,13 +5733,13 @@
 		)
 		(comp
 			(ref "J501")
-			(value "SWD")
-			(footprint "aiee:HDR-SMD_5P-P2.54-H-M-W12.8-N")
+			(value "STDC14 SWD/VCP")
+			(footprint "aiee:HDR-SMD_14P-P1.27_FTSH-107-01-L-DV-K")
 			(fields
 				(field
-					(name "LCSC") "C46061678")
+					(name "LCSC") "C5307809")
 				(field
-					(name "Footprint") "aiee:HDR-SMD_5P-P2.54-H-M-W12.8-N")
+					(name "Footprint") "aiee:HDR-SMD_14P-P1.27_FTSH-107-01-L-DV-K")
 				(field
 					(name "Datasheet")
 				)
@@ -5749,12 +5749,12 @@
 			)
 			(libsource
 				(lib "aiee")
-				(part "HXPZ2.54-1X5PWT")
+				(part "FTSH-107-01-L-DV-K")
 				(description "")
 			)
 			(property
 				(name "LCSC")
-				(value "C46061678")
+				(value "C5307809")
 			)
 			(property
 				(name "Sheetname")
@@ -5777,71 +5777,43 @@
 							(num "1")
 						)
 						(pin
-							(num "2")
+							(num "3")
 						)
 						(pin
-							(num "3")
+							(num "5")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "11")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "2")
 						)
 						(pin
 							(num "4")
 						)
 						(pin
-							(num "5")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J502")
-			(value "UART")
-			(footprint "aiee:HDR-SMD_3P-P2.54-V-M_HX-PZ2.54-1X3P-TP-YQ")
-			(fields
-				(field
-					(name "LCSC") "C41417360")
-				(field
-					(name "Footprint") "aiee:HDR-SMD_3P-P2.54-V-M_HX-PZ2.54-1X3P-TP-YQ")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description")
-				)
-			)
-			(libsource
-				(lib "aiee")
-				(part "HXPZ2.54-1X3PTP-YQ")
-				(description "")
-			)
-			(property
-				(name "LCSC")
-				(value "C41417360")
-			)
-			(property
-				(name "Sheetname")
-				(value "mcu")
-			)
-			(property
-				(name "Sheetfile")
-				(value "mcu.kicad_sch")
-			)
-			(sheetpath
-				(names "/mcu/")
-				(tstamps "/061a1780-0f96-4eb8-a473-be2029d8ade8/")
-			)
-			(tstamps "307705b6-aa81-4d41-9eee-77b4c84487fd")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
+							(num "6")
 						)
 						(pin
-							(num "3")
+							(num "8")
 						)
 						(pin
-							(num "2")
+							(num "10")
+						)
+						(pin
+							(num "12")
+						)
+						(pin
+							(num "14")
 						)
 					)
 				)
@@ -7086,6 +7058,102 @@
 		)
 		(libpart
 			(lib "aiee")
+			(part "FTSH-107-01-L-DV-K")
+			(docs "https://www.lcsc.com/datasheet/C5307809.pdf")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "FTSH-107-01-L-DV-K")
+				(field
+					(name "Footprint") "aiee:HDR-SMD_14P-P1.27_FTSH-107-01-L-DV-K")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5307809.pdf")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "SAMTEC")
+				(field
+					(name "MPN") "FTSH-107-01-L-DV-K")
+				(field
+					(name "LCSC Part") "C5307809")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "RSVD")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "RSVD")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "T_VCC")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "T_SWDIO")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "GND")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "T_SWCLK")
+					(type "passive")
+				)
+				(pin
+					(num "7")
+					(name "GND")
+					(type "passive")
+				)
+				(pin
+					(num "8")
+					(name "T_SWO")
+					(type "passive")
+				)
+				(pin
+					(num "9")
+					(name "T_JRCLK")
+					(type "passive")
+				)
+				(pin
+					(num "10")
+					(name "T_JTDI")
+					(type "passive")
+				)
+				(pin
+					(num "11")
+					(name "GNDDETECT")
+					(type "passive")
+				)
+				(pin
+					(num "12")
+					(name "T_NRST")
+					(type "passive")
+				)
+				(pin
+					(num "13")
+					(name "T_VCP_RX")
+					(type "passive")
+				)
+				(pin
+					(num "14")
+					(name "T_VCP_TX")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "aiee")
 			(part "GZ2012D101TF")
 			(description "100Ω ±25% 100MHz")
 			(docs "https://lcsc.com/product-detail/Ferrite-Beads-And-Chips_100R-25-100MHz_C1015.html")
@@ -7152,98 +7220,6 @@
 				(pin
 					(num "2")
 					(name "2")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "aiee")
-			(part "HXPZ2.54-1X3PTP-YQ")
-			(docs "https://www.lcsc.com/datasheet/C41417360.pdf")
-			(fields
-				(field
-					(name "Reference") "H")
-				(field
-					(name "Value") "HX PZ2.54-1X3P TP-YQ")
-				(field
-					(name "Footprint") "aiee:HDR-SMD_3P-P2.54-V-M_HX-PZ2.54-1X3P-TP-YQ")
-				(field
-					(name "Datasheet") "https://www.lcsc.com/datasheet/C41417360.pdf")
-				(field
-					(name "Description")
-				)
-				(field
-					(name "Manufacturer") "hanxia(韩下)")
-				(field
-					(name "MPN") "HX PZ2.54-1x3P TP-YQ")
-				(field
-					(name "LCSC Part") "C41417360")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "3")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "aiee")
-			(part "HXPZ2.54-1X5PWT")
-			(docs "https://www.lcsc.com/datasheet/C46061678.pdf")
-			(fields
-				(field
-					(name "Reference") "H")
-				(field
-					(name "Value") "HX PZ2.54-1X5P WT")
-				(field
-					(name "Footprint") "aiee:HDR-SMD_5P-P2.54-H-M-W12.8-N")
-				(field
-					(name "Datasheet") "https://www.lcsc.com/datasheet/C46061678.pdf")
-				(field
-					(name "Description")
-				)
-				(field
-					(name "Manufacturer") "hanxia(韩下)")
-				(field
-					(name "MPN") "HX PZ2.54-1x5P WT")
-				(field
-					(name "LCSC Part") "C46061678")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "3")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "4")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "5")
 					(type "passive")
 				)
 			)
@@ -8179,8 +8155,8 @@
 			)
 			(node
 				(ref "J501")
-				(pin "1")
-				(pinfunction "1_1")
+				(pin "3")
+				(pinfunction "T_VCC_3")
 				(pintype "passive")
 			)
 			(node
@@ -8809,8 +8785,8 @@
 			)
 			(node
 				(ref "J501")
-				(pin "4")
-				(pinfunction "4_4")
+				(pin "12")
+				(pinfunction "T_NRST_12")
 				(pintype "passive")
 			)
 			(node
@@ -8826,8 +8802,8 @@
 			(class "Default")
 			(node
 				(ref "J501")
-				(pin "3")
-				(pinfunction "3_3")
+				(pin "6")
+				(pinfunction "T_SWCLK_6")
 				(pintype "passive")
 			)
 			(node
@@ -8843,8 +8819,8 @@
 			(class "Default")
 			(node
 				(ref "J501")
-				(pin "2")
-				(pinfunction "2_2")
+				(pin "4")
+				(pinfunction "T_SWDIO_4")
 				(pintype "passive")
 			)
 			(node
@@ -8856,12 +8832,29 @@
 		)
 		(net
 			(code "22")
+			(name "/mcu/SWO")
+			(class "Default")
+			(node
+				(ref "J501")
+				(pin "8")
+				(pinfunction "T_SWO_8")
+				(pintype "passive")
+			)
+			(node
+				(ref "U501")
+				(pin "40")
+				(pinfunction "PB3_40")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "23")
 			(name "/mcu/UART_RX")
 			(class "Default")
 			(node
-				(ref "J502")
-				(pin "2")
-				(pinfunction "2_2")
+				(ref "J501")
+				(pin "13")
+				(pinfunction "T_VCP_RX_13")
 				(pintype "passive")
 			)
 			(node
@@ -8872,13 +8865,13 @@
 			)
 		)
 		(net
-			(code "23")
+			(code "24")
 			(name "/mcu/UART_TX")
 			(class "Default")
 			(node
-				(ref "J502")
-				(pin "1")
-				(pinfunction "1_1")
+				(ref "J501")
+				(pin "14")
+				(pinfunction "T_VCP_TX_14")
 				(pintype "passive")
 			)
 			(node
@@ -8889,7 +8882,7 @@
 			)
 		)
 		(net
-			(code "24")
+			(code "25")
 			(name "/power_stage/AGND")
 			(class "Default")
 			(node
@@ -8930,7 +8923,7 @@
 			)
 		)
 		(net
-			(code "25")
+			(code "26")
 			(name "/power_stage/BST")
 			(class "HV_0p5mm")
 			(node
@@ -8947,7 +8940,7 @@
 			)
 		)
 		(net
-			(code "26")
+			(code "27")
 			(name "/power_stage/HB")
 			(class "HV_0p5mm")
 			(node
@@ -8970,7 +8963,7 @@
 			)
 		)
 		(net
-			(code "27")
+			(code "28")
 			(name "/power_stage/SW")
 			(class "Pwr_11p0932mm_HV_0p5mm")
 			(node
@@ -9005,7 +8998,7 @@
 			)
 		)
 		(net
-			(code "28")
+			(code "29")
 			(name "/power_stage/VCC")
 			(class "Default")
 			(node
@@ -9034,7 +9027,7 @@
 			)
 		)
 		(net
-			(code "29")
+			(code "30")
 			(name "/regulators/BOOT")
 			(class "HV_0p4mm")
 			(node
@@ -9051,7 +9044,7 @@
 			)
 		)
 		(net
-			(code "30")
+			(code "31")
 			(name "/regulators/BUCK_SW")
 			(class "Pwr_0p3mm")
 			(node
@@ -9080,7 +9073,7 @@
 			)
 		)
 		(net
-			(code "31")
+			(code "32")
 			(name "/regulators/FB")
 			(class "Default")
 			(node
@@ -9103,7 +9096,7 @@
 			)
 		)
 		(net
-			(code "32")
+			(code "33")
 			(name "/sensing/ISNS_RAW")
 			(class "Default")
 			(node
@@ -9120,7 +9113,7 @@
 			)
 		)
 		(net
-			(code "33")
+			(code "34")
 			(name "/sensing/VIN_DIV")
 			(class "Default")
 			(node
@@ -9143,7 +9136,7 @@
 			)
 		)
 		(net
-			(code "34")
+			(code "35")
 			(name "/sensing/VOUT_DIV")
 			(class "Default")
 			(node
@@ -9166,7 +9159,7 @@
 			)
 		)
 		(net
-			(code "35")
+			(code "36")
 			(name "/sensing/VOUT_MID")
 			(class "Default")
 			(node
@@ -9183,7 +9176,7 @@
 			)
 		)
 		(net
-			(code "36")
+			(code "37")
 			(name "GND")
 			(class "Default")
 			(node
@@ -9494,14 +9487,20 @@
 			)
 			(node
 				(ref "J501")
-				(pin "5")
-				(pinfunction "5_5")
+				(pin "11")
+				(pinfunction "GNDDETECT_11")
 				(pintype "passive")
 			)
 			(node
-				(ref "J502")
-				(pin "3")
-				(pinfunction "3_3")
+				(ref "J501")
+				(pin "5")
+				(pinfunction "GND_5")
+				(pintype "passive")
+			)
+			(node
+				(ref "J501")
+				(pin "7")
+				(pinfunction "GND_7")
 				(pintype "passive")
 			)
 			(node
@@ -9626,7 +9625,7 @@
 			)
 		)
 		(net
-			(code "37")
+			(code "38")
 			(name "VIN")
 			(class "Pwr_10p2332mm")
 			(node
@@ -9727,7 +9726,51 @@
 			)
 		)
 		(net
-			(code "38")
+			(code "39")
+			(name "unconnected-(J501-RSVD-Pad1)")
+			(class "Default")
+			(node
+				(ref "J501")
+				(pin "1")
+				(pinfunction "RSVD_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "40")
+			(name "unconnected-(J501-RSVD-Pad2)")
+			(class "Default")
+			(node
+				(ref "J501")
+				(pin "2")
+				(pinfunction "RSVD_2")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "41")
+			(name "unconnected-(J501-T_JRCLK-Pad9)")
+			(class "Default")
+			(node
+				(ref "J501")
+				(pin "9")
+				(pinfunction "T_JRCLK_9")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "42")
+			(name "unconnected-(J501-T_JTDI-Pad10)")
+			(class "Default")
+			(node
+				(ref "J501")
+				(pin "10")
+				(pinfunction "T_JTDI_10")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "43")
 			(name "unconnected-(U201-NC-Pad1)")
 			(class "Default")
 			(node
@@ -9738,7 +9781,7 @@
 			)
 		)
 		(net
-			(code "39")
+			(code "44")
 			(name "unconnected-(U201-NC-Pad2)")
 			(class "Default")
 			(node
@@ -9749,7 +9792,7 @@
 			)
 		)
 		(net
-			(code "40")
+			(code "45")
 			(name "unconnected-(U201-NC-Pad3)")
 			(class "Default")
 			(node
@@ -9760,7 +9803,7 @@
 			)
 		)
 		(net
-			(code "41")
+			(code "46")
 			(name "unconnected-(U201-NC-Pad4)")
 			(class "Default")
 			(node
@@ -9771,7 +9814,7 @@
 			)
 		)
 		(net
-			(code "42")
+			(code "47")
 			(name "unconnected-(U201-NC-Pad8)")
 			(class "Default")
 			(node
@@ -9782,7 +9825,7 @@
 			)
 		)
 		(net
-			(code "43")
+			(code "48")
 			(name "unconnected-(U201-NC-Pad9)")
 			(class "Default")
 			(node
@@ -9793,7 +9836,7 @@
 			)
 		)
 		(net
-			(code "44")
+			(code "49")
 			(name "unconnected-(U201-NC-Pad16)")
 			(class "Default")
 			(node
@@ -9804,7 +9847,7 @@
 			)
 		)
 		(net
-			(code "45")
+			(code "50")
 			(name "unconnected-(U301-NC-Pad4)")
 			(class "Default")
 			(node
@@ -9815,7 +9858,7 @@
 			)
 		)
 		(net
-			(code "46")
+			(code "51")
 			(name "unconnected-(U402-NC-Pad4)")
 			(class "Default")
 			(node
@@ -9826,7 +9869,7 @@
 			)
 		)
 		(net
-			(code "47")
+			(code "52")
 			(name "unconnected-(U501-PA4-Pad12)")
 			(class "Default")
 			(node
@@ -9837,7 +9880,7 @@
 			)
 		)
 		(net
-			(code "48")
+			(code "53")
 			(name "unconnected-(U501-PA5-Pad13)")
 			(class "Default")
 			(node
@@ -9848,7 +9891,7 @@
 			)
 		)
 		(net
-			(code "49")
+			(code "54")
 			(name "unconnected-(U501-PA6-Pad14)")
 			(class "Default")
 			(node
@@ -9859,7 +9902,7 @@
 			)
 		)
 		(net
-			(code "50")
+			(code "55")
 			(name "unconnected-(U501-PA7-Pad15)")
 			(class "Default")
 			(node
@@ -9870,7 +9913,7 @@
 			)
 		)
 		(net
-			(code "51")
+			(code "56")
 			(name "unconnected-(U501-PA10-Pad32)")
 			(class "Default")
 			(node
@@ -9881,7 +9924,7 @@
 			)
 		)
 		(net
-			(code "52")
+			(code "57")
 			(name "unconnected-(U501-PA11-Pad33)")
 			(class "Default")
 			(node
@@ -9892,7 +9935,7 @@
 			)
 		)
 		(net
-			(code "53")
+			(code "58")
 			(name "unconnected-(U501-PA12-Pad34)")
 			(class "Default")
 			(node
@@ -9903,7 +9946,7 @@
 			)
 		)
 		(net
-			(code "54")
+			(code "59")
 			(name "unconnected-(U501-PA15-Pad39)")
 			(class "Default")
 			(node
@@ -9914,7 +9957,7 @@
 			)
 		)
 		(net
-			(code "55")
+			(code "60")
 			(name "unconnected-(U501-PB2-Pad18)")
 			(class "Default")
 			(node
@@ -9925,18 +9968,7 @@
 			)
 		)
 		(net
-			(code "56")
-			(name "unconnected-(U501-PB3-Pad40)")
-			(class "Default")
-			(node
-				(ref "U501")
-				(pin "40")
-				(pinfunction "PB3_40")
-				(pintype "passive+no_connect")
-			)
-		)
-		(net
-			(code "57")
+			(code "61")
 			(name "unconnected-(U501-PB4-Pad41)")
 			(class "Default")
 			(node
@@ -9947,7 +9979,7 @@
 			)
 		)
 		(net
-			(code "58")
+			(code "62")
 			(name "unconnected-(U501-PB5-Pad42)")
 			(class "Default")
 			(node
@@ -9958,7 +9990,7 @@
 			)
 		)
 		(net
-			(code "59")
+			(code "63")
 			(name "unconnected-(U501-PB7-Pad44)")
 			(class "Default")
 			(node
@@ -9969,7 +10001,7 @@
 			)
 		)
 		(net
-			(code "60")
+			(code "64")
 			(name "unconnected-(U501-PB9-Pad46)")
 			(class "Default")
 			(node
@@ -9980,7 +10012,7 @@
 			)
 		)
 		(net
-			(code "61")
+			(code "65")
 			(name "unconnected-(U501-PB10-Pad22)")
 			(class "Default")
 			(node
@@ -9991,7 +10023,7 @@
 			)
 		)
 		(net
-			(code "62")
+			(code "66")
 			(name "unconnected-(U501-PB11-Pad25)")
 			(class "Default")
 			(node
@@ -10002,7 +10034,7 @@
 			)
 		)
 		(net
-			(code "63")
+			(code "67")
 			(name "unconnected-(U501-PB12-Pad26)")
 			(class "Default")
 			(node
@@ -10013,7 +10045,7 @@
 			)
 		)
 		(net
-			(code "64")
+			(code "68")
 			(name "unconnected-(U501-PB13-Pad27)")
 			(class "Default")
 			(node
@@ -10024,7 +10056,7 @@
 			)
 		)
 		(net
-			(code "65")
+			(code "69")
 			(name "unconnected-(U501-PB14-Pad28)")
 			(class "Default")
 			(node
@@ -10035,7 +10067,7 @@
 			)
 		)
 		(net
-			(code "66")
+			(code "70")
 			(name "unconnected-(U501-PB15-Pad29)")
 			(class "Default")
 			(node
@@ -10046,7 +10078,7 @@
 			)
 		)
 		(net
-			(code "67")
+			(code "71")
 			(name "unconnected-(U501-PC13-Pad2)")
 			(class "Default")
 			(node
@@ -10057,7 +10089,7 @@
 			)
 		)
 		(net
-			(code "68")
+			(code "72")
 			(name "unconnected-(U501-PC14-OSC32_IN-Pad3)")
 			(class "Default")
 			(node
@@ -10068,7 +10100,7 @@
 			)
 		)
 		(net
-			(code "69")
+			(code "73")
 			(name "unconnected-(U501-PC15-OSC32_OUT-Pad4)")
 			(class "Default")
 			(node
@@ -10079,7 +10111,7 @@
 			)
 		)
 		(net
-			(code "70")
+			(code "74")
 			(name "unconnected-(U501-PF0-OSC_IN-Pad5)")
 			(class "Default")
 			(node
@@ -10090,7 +10122,7 @@
 			)
 		)
 		(net
-			(code "71")
+			(code "75")
 			(name "unconnected-(U501-PF1-OSC_OUT-Pad6)")
 			(class "Default")
 			(node

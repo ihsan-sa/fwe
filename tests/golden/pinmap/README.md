@@ -2,7 +2,7 @@
 
 `PCB-0026-A_gan-boost-48v.net` is a copy of the boards repo's
 `PCB-0026-A_gan-boost-48v/kicad/PCB-0026-A_gan-boost-48v.net` at boards commit
-41a4352f (PR #50). `PCB-0026-A.pinmap.json` and `PCB-0026-A.board_pins.h` are
+d394f58c (PR #58). `PCB-0026-A.pinmap.json` and `PCB-0026-A.board_pins.h` are
 what `pinmap.py` makes of it.
 
 `tests/test_pinmap.py::test_golden_g474_boost_pinmap` rebuilds both from the

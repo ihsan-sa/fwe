@@ -34,7 +34,8 @@ derived, not typed.
 Net roles are classified by name (the `ROLES` table in `pinmap.py`):
 `INH*/INL*` gate-driver inputs, `ISENSE_*` phase current, `VSENSE_*` phase
 voltage, `VBUS_SENSE`, `HALL_*`, `ENC_*`, `UART_TX/RX`, `LED_*`, `*_SW`
-buttons, `SWDIO/SWCLK/NRST/BOOT0` debug. A pin on a net with no role is
+buttons, `SWDIO/SWCLK/SWO/NRST/BOOT0` debug (SWO must sit on a pin with SWO/TRACESWO at AF0,
+else a `not_swo_pin` finding). A pin on a net with no role is
 reported as `unclassified`, never guessed. Peripheral functions (timer
 channels, USART, ADC channels, comparator inputs) come from the MCU's pin
 table `reference/mcu/<family>.json`, extracted from the datasheet.

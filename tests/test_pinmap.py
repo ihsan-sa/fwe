@@ -21,7 +21,7 @@ from _boards import board_path, need_board  # noqa: E402
 MCU_PINS = {  # LQFP48 number -> pinfunction, the few pins the fixtures use
     "30": "PA8_30", "31": "PA9_31", "32": "PA10_32", "27": "PB13_27",
     "28": "PB14_28", "29": "PB15_29", "9": "PA1_9", "8": "PA0_8",
-    "43": "PB6_43", "44": "PB7_44", "13": "PA5_13", "24": "VDD_24",
+    "40": "PB3_40", "43": "PB6_43", "44": "PB7_44", "13": "PA5_13", "24": "VDD_24",
 }
 
 
@@ -102,6 +102,15 @@ def test_unknown_net_is_a_finding_and_known_ones_are_not(tmp_path):
     assert [f for f in m["findings"] if f["kind"] == "unclassified"] == [
         {"kind": "unclassified", "pin": "PA5", "net": "MYSTERY"}]
     assert by_net(m)["INHA"]["role"] == "gate_hi"
+
+
+def test_swo_net_is_a_role_and_its_pin_must_offer_swo(tmp_path):
+    m = pinmap.build(motor_fixture(tmp_path / "ok", extra=[_net("/mcu/SWO", u("40"))]), None)
+    assert m["findings"] == []
+    assert by_net(m)["SWO"]["role"] == "swo"
+    assert by_net(m)["SWO"]["function"] == {"name": "TRACESWO", "af": 0}   # the G431 table's name
+    m = pinmap.build(motor_fixture(tmp_path / "bad", extra=[_net("/SWO", u("13"))]), None)
+    assert [f["kind"] for f in m["findings"]] == ["not_swo_pin"]
 
 
 def test_gate_pins_without_a_common_timer_channel_are_a_finding(tmp_path):
@@ -205,6 +214,8 @@ def test_golden_g474_boost_pinmap(tmp_path, capsys):
     assert m["analog"]["NTC_SNS"]["beta"] == 3380
     assert [(r["trip"], r["comp"], r["fault"]) for r in m["fault_routes"]] == \
         [("ovp", "COMP3", "FLT5"), ("ocp", "COMP1", "FLT4")]  # RM0440 Rev 9 Table 228
+    assert pins["SWO"]["role"] == "swo"
+    assert pins["SWO"]["function"] == {"name": "SWO", "af": 0}   # PB3, the G474 table's name
     assert m["findings"] == []
 
 
