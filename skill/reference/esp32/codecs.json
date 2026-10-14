@@ -1,0 +1,59 @@
+{
+  "comment": "Audio parts the ESP32 pin map recognises on a squeezelite-esp32 board, by part-number prefix. kind: dac (I2S out), amp, adc (I2S in), phy, display. model is squeezelite-esp32's dac_config model; i2c parts carry the 7-bit addresses their address pins can strap and the register writes squeezelite sends through dac_controlset (init, poweron, poweroff: [reg, val] pairs, decimal register numbers). A part whose sequence is not checked against its datasheet has verified false, and pinmap reports it as a finding rather than flashing an unchecked sequence as if it were known.",
+  "parts": {
+    "TAS5825M": {
+      "kind": "amp", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [76, 77, 78, 79],
+      "controls": {
+        "init": [[0, 0], [127, 0], [3, 2], [1, 17], [3, 2], [51, 2], [76, 48]],
+        "poweron": [[3, 3]],
+        "poweroff": [[3, 2]]
+      },
+      "verified": false,
+      "source": "TAS5825M datasheet SLASEX7 register map (page 0, book 0): 0x03 DEVICE_CTRL_2 HiZ=2 Play=3, 0x01 RESET_CTRL, 0x33 SAP_CTRL1 24-bit, 0x4C DIG_VOL 0 dB. Written without the datasheet at hand; check before flashing.",
+      "pins": {"enable": "PDN", "fault": "FAULT", "warn": "WARN"}
+    },
+    "TPA3245": {
+      "kind": "amp", "bus": "analog", "model": null, "verified": true,
+      "source": "TPA3245 datasheet: /RESET low holds the outputs off, /FAULT and /CLIP_OTW are open-drain active low. No I2C.",
+      "pins": {"enable": "RESET", "fault": "FAULT", "warn": "CLIP_OTW"}
+    },
+    "ES9038Q2M": {
+      "kind": "dac", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [72, 73],
+      "controls": {"init": [], "poweron": [], "poweroff": []},
+      "verified": false,
+      "source": "ES9038Q2M datasheet (ESS, under NDA for the full register map): the init sequence must come from it.",
+      "pins": {"enable": "CHIP_EN", "mute": "MUTE"}
+    },
+    "AK4493S": {
+      "kind": "dac", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [16, 17, 18, 19],
+      "controls": {"init": [], "poweron": [], "poweroff": []},
+      "verified": false,
+      "source": "AK4493S datasheet (AKM): the init sequence must come from it.",
+      "pins": {"enable": "PDN", "mute": "SMUTE"}
+    },
+    "PCM5102": {
+      "kind": "dac", "bus": "i2s", "model": "I2S", "verified": true,
+      "source": "PCM5102A datasheet SLAS859: hardware-controlled, XSMT high un-mutes, no I2C.",
+      "pins": {"mute": "XSMT"}
+    },
+    "PCM1808": {
+      "kind": "adc", "bus": "i2s", "verified": true,
+      "source": "PCM1808 datasheet SLES177: hardware-controlled I2S ADC, no I2C.",
+      "pins": {}
+    },
+    "PCM1863": {
+      "kind": "adc", "bus": "i2s+i2c", "i2c_addr": [74, 75], "verified": true,
+      "source": "PCM1863 datasheet SLAS831: I2S ADC, I2C control; our line-in component owns its setup.",
+      "pins": {}
+    },
+    "LAN8720": {
+      "kind": "phy", "model": "lan8720", "verified": true,
+      "source": "LAN8720A datasheet; ESP32 EMAC RMII pins are fixed (ESP32 TRM, EMAC chapter).",
+      "pins": {}
+    },
+    "SSD1306": {"kind": "display", "driver": "SSD1306", "verified": true, "source": "squeezelite-esp32 display drivers", "pins": {}},
+    "SH1106": {"kind": "display", "driver": "SH1106", "verified": true, "source": "squeezelite-esp32 display drivers", "pins": {}},
+    "SSD1322": {"kind": "display", "driver": "SSD1322", "verified": true, "source": "squeezelite-esp32 display drivers", "pins": {}},
+    "ST7789": {"kind": "display", "driver": "ST7789", "verified": true, "source": "squeezelite-esp32 display drivers", "pins": {}}
+  }
+}

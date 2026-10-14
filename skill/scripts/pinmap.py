@@ -15,13 +15,20 @@ current-sense amplifier's gain (from its part suffix), reference voltage
 HRTIM board it lists fault_routes: the comparator on each trip sense pin and,
 once the MCU table's COMP -> FLTn sources are verified, the FLTn it reaches.
 
-Writes <workspace>/firmware/pinmap.json and <workspace>/firmware/gen/board_pins.h.
-With --check it writes nothing and exits 1 when either file differs from what
+On an ESP32 module board (squeezelite-esp32) the product is instead the
+NVS config squeezelite reads (dac_config with its I2C controlset, set_GPIO,
+i2c_config, eth_config, display_config, ...), derived by fwelib/squeezelite.py
+and written as firmware/gen/nvs_config.csv for nvs_partition_gen.py.
+
+Writes <workspace>/firmware/pinmap.json and <workspace>/firmware/gen/board_pins.h
+(and gen/nvs_config.csv on an ESP32 board).
+With --check it writes nothing and exits 1 when any of them differs from what
 the netlist gives now, so a re-spun board fails the firmware build until the
 map is regenerated.
 
-JSON to stdout (or --out): {"ok", "board", "mcu", "pins", "analog", "rails",
-"fault_routes" (HRTIM boards only), "findings", "files"}. Exit 0 ok, 1 findings or drift (--check), 2 error.
+JSON to stdout (or --out): {"ok", "board", "mcu", "pins", "rails", "analog"
+(STM32 boards), "fault_routes" (HRTIM boards only), "parts", "squeezelite",
+"notes" (ESP32 boards), "findings", "files"}. Exit 0 ok, 1 findings or drift (--check), 2 error.
 A finding is anything the map could not derive (an unclassified pin, an
 analog input with no ADC channel, a timer group with no common timer, a
 COMP -> FLTn route the MCU table has not verified); it is reported, never
@@ -38,9 +45,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fwelib import fwenv  # noqa: E402
+from fwelib import squeezelite  # noqa: E402
 from fwelib.netlist import NetlistError, parse_netlist  # noqa: E402
 
 MCU_DIR = fwenv.SKILL / "reference" / "mcu"
+CODECS = fwenv.SKILL / "reference" / "esp32" / "codecs.json"
 PHASE_CH = {"A": 1, "B": 2, "C": 3}
 
 # (net-name regex, role, group). A group's pins must share one peripheral.
@@ -176,9 +185,9 @@ def find_mcu(nl: Netlist, ref: str | None) -> str:
         if ref not in nl.comps:
             raise Error(f"--mcu {ref} is not in the netlist")
         return ref
-    cands = [r for r, c in nl.comps.items() if re.match(r"STM32", c.get("value") or "", re.I)]
+    cands = [r for r, c in nl.comps.items() if re.match(r"STM32|ESP32", c.get("value") or "", re.I)]
     if len(cands) != 1:
-        raise Error(f"expected one STM32 in the netlist, found {cands or 'none'}; pass --mcu")
+        raise Error(f"expected one STM32 or ESP32 in the netlist, found {cands or 'none'}; pass --mcu")
     return cands[0]
 
 
@@ -414,6 +423,8 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
     nl = Netlist(parse_netlist(netfile))
     mcu = find_mcu(nl, mcu_ref)
     part = nl.comps[mcu]["value"]
+    if part.upper().startswith("ESP32"):
+        return build_esp32(ws, netfile, nl, mcu, part)
     fam, table = load_mcu_table(part)
     findings: list[dict] = []
     pins, power = [], {}
@@ -470,6 +481,27 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
             "mcu": {"ref": mcu, "part": part, "table": fam, "source": table.get("source")},
             "pins": pins, "power_pins": power, "rails": rails, "analog": analog,
             **({"fault_routes": faults} if faults else {}), "findings": findings}
+
+
+def build_esp32(ws: Path, netfile: Path, nl: Netlist, mcu: str, part: str) -> dict:
+    """An ESP32 module board: pins plus squeezelite-esp32's NVS config (fwelib/squeezelite.py)."""
+    sq = squeezelite.build(nl, mcu, json.loads(CODECS.read_text(encoding="utf-8")))
+    rails = {net: nl.volts(next(n for n in nl.nets if short(n) == net)) for net in sorted(sq["power_pins"])}
+    return {"board": ws.name.split("_", 1)[0], "workspace": ws.name,
+            "netlist": f"kicad/{netfile.name}",
+            "netlist_sha256": hashlib.sha256(netfile.read_bytes()).hexdigest(),
+            "mcu": {"ref": mcu, "part": part, "table": "esp32", "source": "ESP32 datasheet, IO_MUX"},
+            "pins": sq["pins"], "power_pins": sq["power_pins"], "rails": rails, "parts": sq["parts"],
+            "squeezelite": sq["squeezelite"], "notes": sq["notes"], "findings": sq["findings"]}
+
+
+def outputs(m: dict) -> dict[str, str]:
+    """firmware-relative path -> text, for the family the map is for."""
+    if m["mcu"]["table"] == "esp32":
+        return {"pinmap.json": json.dumps(m, indent=2) + "\n",
+                "gen/board_pins.h": squeezelite.header(m),
+                "gen/nvs_config.csv": squeezelite.nvs_csv(m["squeezelite"])}
+    return {"pinmap.json": json.dumps(m, indent=2) + "\n", "gen/board_pins.h": header(m)}
 
 
 def _c(name: str) -> str:
@@ -545,7 +577,7 @@ def header(m: dict) -> str:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--workspace", required=True, help="board workspace (path, or name under boards root)")
-    ap.add_argument("--mcu", help="MCU refdes when the netlist has more than one STM32")
+    ap.add_argument("--mcu", help="MCU refdes when the netlist has more than one STM32 or ESP32")
     ap.add_argument("--fw-dir", default="firmware", help="firmware dir, relative to the workspace")
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 on drift")
     ap.add_argument("--out", help="write the JSON result here instead of stdout")
@@ -556,12 +588,12 @@ def main(argv=None) -> int:
         if Path(a.fw_dir).is_absolute() or ".." in Path(a.fw_dir).parts:
             raise Error(f"--fw-dir {a.fw_dir} must be a path inside the workspace")
         m = build(ws, a.mcu)
-    except (Error, NetlistError, OSError) as exc:
+        files = outputs(m)
+    except (Error, NetlistError, OSError, ValueError) as exc:
         res, rc = {"ok": False, "error": str(exc)}, 2
     else:
         fw = ws / a.fw_dir
-        want = {fw / "pinmap.json": json.dumps(m, indent=2) + "\n",
-                fw / "gen" / "board_pins.h": header(m)}
+        want = {fw / rel: text for rel, text in files.items()}
         drift = []
         for path, text in want.items():
             have = path.read_text(encoding="utf-8") if path.is_file() else None

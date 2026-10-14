@@ -1,0 +1,167 @@
+"""/fwe pinmap.py on an ESP32 board: squeezelite-esp32's NVS config from a netlist.
+
+Each case writes its own small KiCad netlist (an ESP32-WROVER-E with a few
+audio parts), so none needs the hifi boards.
+"""
+from __future__ import annotations
+
+import csv
+import io
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "skill" / "scripts"))
+
+import pinmap  # noqa: E402
+from fwelib import squeezelite  # noqa: E402
+
+U = "U1"  # the module; pin numbers are WROVER-E's, functions as KiCad names them
+
+
+def _net(name, *nodes):
+    body = " ".join(f'(node (ref "{r}") (pin "{p}") (pinfunction "{f}") (pintype "passive"))'
+                    for r, p, f in nodes)
+    return f'(net (code "1") (name "{name}") {body})'
+
+
+def write_board(tmp: Path, nets: list[str], comps: dict[str, str]) -> Path:
+    ws = tmp / "PCB-9998-A_esp"
+    (ws / "kicad").mkdir(parents=True)
+    cs = " ".join(f'(comp (ref "{r}") (value "{v}") (footprint "x"))' for r, v in comps.items())
+    (ws / "kicad" / "PCB-9998-A_esp.net").write_text(
+        f'(export (version "E") (components {cs}) (nets {" ".join(nets)}))\n')
+    return ws
+
+
+def base_nets() -> list[str]:
+    return [
+        _net("+3V3", (U, "2", "3V3")),
+        _net("GND", (U, "1", "GND")),
+        _net("/audio/I2S_BCK", (U, "16", "IO33"), ("U2", "13", "BCK")),
+        _net("/audio/I2S_WS", (U, "11", "IO26"), ("U2", "15", "LRCK")),
+        _net("/audio/I2S_DOUT", (U, "10", "IO25"), ("U2", "14", "DIN")),
+        _net("/audio/XSMT_NET", (U, "14", "IO12"), ("U2", "17", "XSMT")),
+        _net("/ui/IR_RX", (U, "12", "IO27")),
+        _net("/ui/ENC_A", (U, "6", "IO34")),
+        _net("/ui/ENC_B", (U, "7", "IO35")),
+        _net("/ui/ENC_SW", (U, "5", "SENSOR_VN")),
+        _net("unconnected-(U1-IO4)", (U, "26", "IO4")),
+    ]
+
+
+def test_gpio_names_from_module_pin_functions():
+    assert squeezelite.gpio_of("IO25") == 25
+    assert squeezelite.gpio_of("GPIO4") == 4
+    assert squeezelite.gpio_of("IO25_10") == 25
+    assert squeezelite.gpio_of("SENSOR_VP") == 36
+    assert squeezelite.gpio_of("TXD0") == 1
+    assert squeezelite.gpio_of("GND") is None
+    assert squeezelite.gpio_of("EN") is None
+
+
+def test_pcm5102_board_gives_dac_config_and_gpio_keys(tmp_path):
+    ws = write_board(tmp_path, base_nets(), {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR"})
+    m = pinmap.build(ws, None)
+    assert m["findings"] == []
+    cfg = m["squeezelite"]["config"]
+    # XSMT is found through the part's pin, not its net name; high un-mutes, so mute is level 0.
+    assert cfg["dac_config"] == "model=I2S,bck=33,ws=26,do=25,mute=12:0"
+    assert "dac_controlset" not in cfg
+    assert cfg["set_GPIO"] == "27=ir"
+    assert cfg["rotary_config"] == "A=34,B=35,SW=39,volume,longpress"
+    assert {p["pin"]: p["role"] for p in m["pins"]}["GPIO4"] == "unused"
+    assert any("GPIO12" in n for n in m["notes"])        # a strapping pin is noted, not refused
+
+
+def test_tpa3245_enable_and_fault_and_lan8720(tmp_path):
+    nets = base_nets() + [
+        _net("/amp/AMP_ON", (U, "24", "IO2"), ("U4", "9", "~{RESET}")),
+        _net("/amp/AMP_FLT", (U, "8", "IO32"), ("U4", "10", "~{FAULT}")),
+        _net("/amp/OTW", (U, "4", "SENSOR_VP"), ("U4", "11", "~{CLIP_OTW}")),
+        _net("/eth/ETH_MDC", (U, "29", "IO23"), ("U5", "13", "MDC")),
+        _net("/eth/ETH_MDIO", (U, "30", "IO18"), ("U5", "12", "MDIO")),
+        _net("/eth/ETH_RST", (U, "27", "IO5"), ("U5", "15", "~{RST}")),
+    ]
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR",
+                                       "U4": "TPA3245DDW", "U5": "LAN8720A-CP"})
+    m = pinmap.build(ws, None)
+    cfg = m["squeezelite"]["config"]
+    assert cfg["set_GPIO"] == "2=amp:1,27=ir,32=spkfault:0"
+    assert cfg["eth_config"] == "model=lan8720,mdc=23,mdio=18,rst=5"
+    assert m["squeezelite"]["fwe"]["amp_warn_gpio"] == "36:0"
+    # LAN8720 fixes RMII on GPIO25/26/27, which this fixture gave to I2S and IR.
+    taken = {f["pin"] for f in m["findings"] if f["kind"] == "rmii_pin_taken"}
+    assert taken == {"GPIO25", "GPIO26", "GPIO27"}
+
+
+def test_i2c_codec_gets_controlset_and_an_unverified_sequence_is_a_finding(tmp_path):
+    nets = base_nets()[:5] + [
+        _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+        _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+        _net("/audio/AMP_PDN", (U, "24", "IO2"), ("U2", "22", "PDN")),
+    ]
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "TAS5825MRHBR"})
+    m = pinmap.build(ws, None)
+    cfg = m["squeezelite"]["config"]
+    assert cfg["i2c_config"] == "scl=15,sda=14,speed=400000,port=0"
+    assert cfg["dac_config"].startswith("model=I2S,bck=33,ws=26,do=25,sda=14,scl=15")
+    ctl = json.loads(cfg["dac_controlset"])
+    assert set(ctl) == {"init", "poweron", "poweroff"} and ctl["poweron"] == [{"reg": 3, "val": 3}]
+    kinds = {f["kind"] for f in m["findings"]}
+    assert {"codec_unverified", "i2c_addr_unknown"} <= kinds
+    assert cfg["set_GPIO"] == "2=amp:1"
+
+
+def test_output_on_input_only_pin_and_reserved_pin_are_findings(tmp_path):
+    nets = base_nets() + [_net("/LED_RED", (U, "6b", "IO36")), _net("/BTN_PLAY", (U, "9", "IO16"))]
+    nets[7] = _net("/LED_GREEN", (U, "6", "IO34"))
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR"})
+    m = pinmap.build(ws, None)
+    bad = {(f["kind"], f["pin"]) for f in m["findings"]}
+    assert ("input_only_pin", "GPIO34") in bad and ("input_only_pin", "GPIO36") in bad
+    assert ("reserved_pin", "GPIO16") in bad
+    assert m["squeezelite"]["fwe"]["buttons"] == "play=16"
+
+
+def test_line_in_adc_goes_to_our_namespace(tmp_path):
+    nets = base_nets() + [_net("/audio/I2S_DIN", (U, "8", "IO32"), ("U6", "8", "DOUT"))]
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR", "U6": "PCM1808PWR"})
+    m = pinmap.build(ws, None)
+    assert m["findings"] == []
+    assert m["squeezelite"]["fwe"]["linein_config"] == "model=PCM1808,bck=33,ws=26,di=32"
+    assert "linein_config" not in m["squeezelite"]["config"]
+
+
+def test_nvs_csv_round_trips_through_csv_and_refuses_long_keys():
+    text = squeezelite.nvs_csv({"config": {"dac_config": "model=I2S,bck=33",
+                                           "dac_controlset": '{"init":[]}'}, "fwe": {}})
+    rows = list(csv.reader(io.StringIO(text)))
+    assert rows[0] == ["key", "type", "encoding", "value"]
+    assert rows[1] == ["config", "namespace", "", ""]
+    assert rows[2] == ["dac_config", "data", "string", "model=I2S,bck=33"]
+    assert rows[3][3] == '{"init":[]}'
+    assert len(rows) == 4                                  # an empty namespace is left out
+    try:
+        squeezelite.nvs_csv({"config": {"a_key_far_too_long": "x"}})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("a 16-character key must be refused")
+
+
+def test_main_writes_csv_and_check_catches_a_respin(tmp_path, capsys):
+    ws = write_board(tmp_path, base_nets(), {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR"})
+    assert pinmap.main(["--workspace", str(ws)]) == 0
+    capsys.readouterr()
+    fw = ws / "firmware"
+    assert "dac_config" in (fw / "gen" / "nvs_config.csv").read_text()
+    assert "#define PIN_I2S_BCK_GPIO 33" in (fw / "gen" / "board_pins.h").read_text()
+    assert pinmap.main(["--workspace", str(ws), "--check"]) == 0
+    capsys.readouterr()
+    net = ws / "kicad" / "PCB-9998-A_esp.net"
+    net.write_text(net.read_text().replace('"IO27"', '"IO13"'))
+    assert pinmap.main(["--workspace", str(ws), "--check"]) == 1
+    res = json.loads(capsys.readouterr().out)
+    assert "firmware/gen/nvs_config.csv" in res["drift"]

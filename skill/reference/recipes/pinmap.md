@@ -18,3 +18,16 @@ nothing and exits 1 on drift; `fw_build.py` runs it first.
   table's `hrtim.fault_internal_sources`, and only once that table says it was
   verified against the reference manual; until then each route is a
   `fault_route_unverified` finding and `board_pins.h` carries no `TRIP_*_FLT`.
+- An ESP32 module board (squeezelite-esp32) gets squeezelite's NVS config
+  instead of timers and ADC channels: `gen/nvs_config.csv` holds the
+  `config` namespace upstream reads (`dac_config`, `dac_controlset`,
+  `set_GPIO`, `i2c_config`, `eth_config`, `rotary_config`, `display_config`,
+  `spi_config`) and a `fwe` namespace for what only our components read
+  (line-in ADC, amp warning pin, buttons). A part listed in
+  `reference/esp32/codecs.json` places its control pins (enable, fault,
+  mute) through its own pin names, whatever the net is called; the rest go
+  by net name (fwelib/squeezelite.py ROLES). A codec whose I2C sequence is
+  not checked against its datasheet (`verified: false`) is a
+  `codec_unverified` finding: fill the sequence from the datasheet and set
+  `verified` rather than flashing it. RMII pins taken by something else, an
+  output on GPIO34-39, or a flash/PSRAM pin in use are findings too.
