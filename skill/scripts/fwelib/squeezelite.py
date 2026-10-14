@@ -123,14 +123,20 @@ def find_parts(nl, codecs: dict) -> list[dict]:
     return out
 
 
+def _pin_names(func: str) -> set[str]:
+    """A shared pin's names: 'CAD0/CSN' {'CAD0', 'CSN', 'CAD0CSN'}, '/RESET' {'RESET'}."""
+    return {_pin_name(s) for s in (func or "").split("/") if s} | {_pin_name(func)}
+
+
 def _part_pin_net(nl, ref: str, name: str) -> str | None:
     for pin, net in nl.pins.get(ref, {}).items():
-        if _pin_name(nl.func.get((ref, pin), "")) == name:
+        if name in _pin_names(nl.func.get((ref, pin), "")):
             return net
     return None
 
 
-_STRAP = re.compile(r"(?:C?AD|ADDR?)(\d?)")
+# CAD0/CAD1, AD0/AD1, ADR, ADDR, ADR0: a bare AD (an ADC input, say) is not a strap.
+_STRAP = re.compile(r"(?:C?AD(?=\d)|ADD?R)(\d?)")
 
 
 def _i2c_addr(nl, part: dict, findings: list) -> int | None:
@@ -142,7 +148,7 @@ def _i2c_addr(nl, part: dict, findings: list) -> int | None:
         return addrs[0]
     bits = {}
     for p, n in nl.pins.get(part["ref"], {}).items():
-        m = _STRAP.fullmatch(_pin_name(nl.func.get((part["ref"], p), "")))
+        m = next(filter(None, map(_STRAP.fullmatch, _pin_names(nl.func.get((part["ref"], p), "")))), None)
         if m:
             bits.setdefault(int(m.group(1) or 0), []).append(n)
     if bits and len(addrs) == 2 ** len(bits) and sorted(bits) == list(range(len(bits))) \
@@ -185,6 +191,10 @@ def build(nl, mcu: str, codecs: dict) -> dict:
                 p["role"], p["active"] = PART_PIN_ROLE[what]
                 p["active"] = part.get("active", {}).get(what, p["active"])
                 p["part"] = part["ref"]
+        if part.get("unchecked"):
+            findings.append({"kind": "codec_pins_unchecked", "ref": part["ref"], "part": part["part"],
+                             "detail": f"{', '.join(part['unchecked'])} not checked against the "
+                                       "datasheet (reference/esp32/codecs.json)"})
     for p in pins:
         if p["role"] != "unclassified":
             continue

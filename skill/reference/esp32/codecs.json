@@ -1,5 +1,5 @@
 {
-  "comment": "Audio parts the ESP32 pin map recognises on a squeezelite-esp32 board, by part-number prefix. kind: dac (I2S out), amp, adc (I2S in), phy, display. model is squeezelite-esp32's dac_config model; i2c parts carry the 7-bit addresses their address pins can strap, indexed by the strap code (CAD1 CAD0 = 10 is the third) and the register writes squeezelite sends through dac_controlset (init, poweron, poweroff: [reg, val] pairs, decimal register numbers). A part whose sequence is not checked against its datasheet has verified false, and pinmap reports it as a finding rather than flashing an unchecked sequence as if it were known. active overrides a control pin's level: the level that turns an enable on, or that mutes (otherwise enable is 1 and fault, warn and mute are 0).",
+  "comment": "Audio parts the ESP32 pin map recognises on a squeezelite-esp32 board, by part-number prefix. kind: dac (I2S out), amp, adc (I2S in), phy, display. model is squeezelite-esp32's dac_config model; i2c parts carry the 7-bit addresses their address pins can strap, indexed by the strap code (CAD1 CAD0 = 10 is the third) and the register writes squeezelite sends through dac_controlset (init, poweron, poweroff: [reg, val] pairs, decimal register numbers). A part whose sequence is not checked against its datasheet has verified false, and pinmap reports it as a finding rather than flashing an unchecked sequence as if it were known. active overrides a control pin's level: the level that turns an enable on, or that mutes (otherwise enable is 1 and fault, warn and mute are 0). unchecked names the fields (i2c_addr, a control pin) not yet checked against the datasheet; pinmap still uses them but reports a codec_pins_unchecked finding.",
   "parts": {
     "TAS5825M": {
       "kind": "amp", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [76, 77, 78, 79],
@@ -28,8 +28,8 @@
       "kind": "dac", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [16, 17, 18, 19],
       "controls": {"init": [], "poweron": [], "poweroff": []},
       "verified": false,
-      "source": "AK4493S datasheet (AKM): the init sequence must come from it. I2C chip address 00100 CAD1 CAD0, so 0x10-0x13 by the CAD1/CAD0 straps. The SMUTE pin mutes when high, so mute is active 1. Address and mute are from AKM's AK449x pin description; the init sequence is still unchecked.",
-      "pins": {"enable": "PDN", "mute": "SMUTE"}, "active": {"mute": 1}
+      "source": "AK4493S datasheet (AKM): the init sequence must come from it. I2C chip address 00100 CAD1 CAD0, so 0x10-0x13 by the CAD1/CAD0 straps. The SMUTE pin mutes when high, so mute is active 1. Address and mute are from memory of AKM's AK449x pin descriptions, not the datasheet, and whether the SMUTE pin still mutes in I2C control mode is unknown; all of it is unchecked.",
+      "pins": {"enable": "PDN", "mute": "SMUTE"}, "active": {"mute": 1}, "unchecked": ["i2c_addr", "mute"]
     },
     "PCM5102": {
       "kind": "dac", "bus": "i2s", "model": "I2S", "verified": true,
