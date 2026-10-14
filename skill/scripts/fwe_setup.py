@@ -138,8 +138,9 @@ def _install_source(entry: dict) -> str:
 
 
 def _framework_marker(entry: dict) -> str:
-    """What a finished install wrote: a changed commit, target or python re-installs."""
-    return "\n".join([entry["commit"], ",".join(entry["targets"]), entry["python"]]) + "\n"
+    """What a finished install wrote: a changed commit, target, python or extra re-installs."""
+    return "\n".join([entry["commit"], ",".join(entry["targets"]), entry["python"],
+                      *entry.get("python_extra", [])]) + "\n"
 
 
 def _framework_ok(entry: dict) -> tuple[bool, str]:
@@ -185,11 +186,14 @@ def _install_framework(entry: dict) -> str:
     # IDF wants the virtualenv package on the base python to make its env, and
     # pip-installs it --user when it is missing, which uv's python refuses. A
     # seeded uv venv at the path IDF computes is one it accepts and fills.
-    idf_mm = ".".join(entry["tag"].lstrip("v").split(".")[:2])
-    venv = fwenv.idf_tools_path() / "python_env" / f"idf{idf_mm}_py{entry['python']}_env"
+    venv = fwenv.idf_python_env(entry)
     if not (venv / "bin" / "python").exists():
         _run(["uv", "venv", "-q", "--seed", "--python", py, str(venv)])
     _run(tools + ["install-python-env"], env)
+    # Upstream's CI image adds these to IDF's env (its Dockerfile, unpinned): cspot's
+    # nanopb generator imports google.protobuf. The lock pins what resolved.
+    if entry.get("python_extra"):
+        _run([str(venv / "bin" / "python"), "-m", "pip", "install", "-q", *entry["python_extra"]])
     (root / ".fwe-installed").write_text(_framework_marker(entry))
     return f"cloned {entry['tag']} and installed its tools with python {entry['python']}"
 

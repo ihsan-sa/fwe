@@ -37,10 +37,14 @@ these, and any other task only to the MCU verbs. Gateware also lives in
 the UART register protocol and the /npie manifest. Its sim and synthesis run
 on chip-flow's `bin/eda`, and the bench reuses /vde's cocotblib.
 
-ESP32 verbs (so far): `esp32-setup` `esp32-pinmap`. A task that names the
-ESP32 (esp32, esp-idf, idf.py, squeezelite, wrover) routes only to these. The
-firmware is upstream squeezelite-esp32 at the commit the lock's `upstreams`
-pins, built with the ESP-IDF its `frameworks` entry pins.
+ESP32 verbs: `esp32-setup` `esp32-pinmap` `esp32-scaffold` `esp32-build`
+`esp32-test` `esp32-manifest`. A task that names the ESP32 (esp32, esp-idf,
+idf.py, squeezelite, wrover) routes only to these. The firmware is upstream
+squeezelite-esp32 at the commit the lock's `upstreams` pins, cloned into
+`firmware/upstream/` (never forked, never given a remote of ours), built with
+the ESP-IDF its `frameworks` entry pins. Our code is `firmware/components/fwe_*`,
+linked into upstream so upstream can move without a merge; `fwe_stub` shows the
+shape a new component takes.
 
 ## Rules
 

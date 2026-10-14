@@ -75,13 +75,22 @@ def idf_tools_path() -> Path:
     return tools_dir() / "espressif"
 
 
+def idf_python_env(entry: dict) -> Path:
+    """The python env IDF's install-python-env fills, at the path IDF computes."""
+    idf_mm = ".".join(entry["tag"].lstrip("v").split(".")[:2])
+    return idf_tools_path() / "python_env" / f"idf{idf_mm}_py{entry['python']}_env"
+
+
 def idf_env(entry: dict | None = None) -> dict:
-    """os.environ with IDF_PATH and IDF_TOOLS_PATH set for the pinned ESP-IDF.
-    A build still sources $IDF_PATH/export.sh for PATH; this only names where."""
+    """os.environ with IDF_PATH and IDF_TOOLS_PATH set for the pinned ESP-IDF,
+    and its python env first on PATH: export.sh runs `python`, which a host
+    with only python3 lacks. A build still sources $IDF_PATH/export.sh for the
+    compilers; this only names where."""
     entry = entry or framework("esp-idf")
     e = dict(os.environ)
     e["IDF_PATH"] = str(framework_root(entry))
     e["IDF_TOOLS_PATH"] = str(idf_tools_path())
+    e["PATH"] = os.pathsep.join([str(idf_python_env(entry) / "bin"), e.get("PATH", "")])
     return e
 
 

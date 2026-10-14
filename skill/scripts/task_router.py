@@ -140,6 +140,31 @@ VERBS = {
                    "gen/board_pins.h from the board's netlist",
         "steps": ["pinmap.py --workspace {ws}"],
     },
+    "esp32-scaffold": {
+        "target": "esp32",
+        "match": [r"\b(scaffold|new|start|create|rebase|update upstream)\b"],
+        "summary": "start the firmware project: our components template, upstream squeezelite-esp32 "
+                   "cloned at the lock's commit into firmware/upstream, components linked in",
+        "steps": ["fw_scaffold.py --workspace {ws} [--update]"],
+    },
+    "esp32-build": {
+        "target": "esp32",
+        "match": [r"\b(build|compile|flash image|nvs image|werror)\b"],
+        "summary": "idf.py build of upstream plus our components (-Werror on ours) and the NVS image",
+        "steps": ["esp32_build.py --workspace {ws}"],
+    },
+    "esp32-test": {
+        "target": "esp32",
+        "match": [r"\b(test|tests|unit|host)\b"],
+        "summary": "host unit tests for our components' core/ logic",
+        "steps": ["esp32_test.py --workspace {ws}"],
+    },
+    "esp32-manifest": {
+        "target": "esp32",
+        "match": [r"\bmanifest\b", r"\bnpie\b"],
+        "summary": "write or check firmware/fwe-manifest.json (fwe-esp32-manifest/1) for /npie",
+        "steps": ["esp32_manifest.py --workspace {ws} [--check]"],
+    },
     "full-run": {
         "match": [r"\b(full.?run|end to end|from scratch|firmware for)\b", r"^run (on|for)\b"],
         "summary": "the whole path for a board: setup, scaffold, build, host tests",

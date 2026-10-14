@@ -37,6 +37,7 @@
      "repo": "https://github.com/espressif/esp-idf",
      "tag": "v4.4.8", "commit": "e499576efdb086551abe309a72899302f82077b7",
      "targets": ["esp32"], "python": "3.8",
+     "python_extra": ["protobuf==5.29.6", "grpcio-tools==1.70.0"],
      "pinned_from": "squeezelite-esp32 af2e157f3d0d: Dockerfile IDF_CLONE_BRANCH_OR_TAG/IDF_CHECKOUT_REF, the image .github/workflows/Platform_build.yml builds in (sle118/squeezelite-esp32-idfv448:4.4.8), python3.8 as that image"}
   ],
   "upstreams": [

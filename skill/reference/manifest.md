@@ -123,3 +123,48 @@ energises the bridge; anything that does is a `commands` entry with
 
 `schema` changes its number on any breaking change. Additive keys are
 allowed within a version, and a reader ignores keys it does not know.
+
+## ESP32 boards (squeezelite-esp32)
+
+An ESP32 board's firmware is upstream squeezelite-esp32 with our components, so its
+manifest has its own schema, `fwe-esp32-manifest/1`, written by `esp32_manifest.py`.
+/npie flashes it over the ROM bootloader and talks to it on the network, so there is no
+`fwe` command protocol: `commands` and `test_hooks` are empty until a component of ours
+adds some, and the console is upstream's own.
+
+```json
+{
+  "schema": "fwe-esp32-manifest/1",
+  "board": "PCB-0029-A",
+  "mcu": {"part": "ESP32-WROVER-E-N8R8", "core": "xtensa-lx6", "chip": "esp32",
+          "flash_mb": 8, "psram_mb": 8},
+  "firmware": {"base": "squeezelite-esp32", "upstream_commit": "af2e157f…",
+               "pinned_commit": "af2e157f…", "esp_idf": "v4.4.8", "platform": "I2S-4MFlash"},
+  "images": [{"name": "bootloader", "offset": "0x1000", "file": "build/bootloader/bootloader.bin",
+              "sha256": "…"},
+             {"name": "nvs_config", "offset": "0x…", "file": "build/nvs_config.bin", "sha256": "…"}],
+  "flash": {"interface": "uart-rom-bootloader", "tx_gpio": 1, "rx_gpio": 3, "baud": 460800,
+            "boot_strap": "GPIO0 low at reset",
+            "command": ["esptool.py", "--chip", "esp32", "-b", "460800", "write_flash", "-z",
+                        "--flash_mode", "dio", "--flash_freq", "80m", "--flash_size", "4MB",
+                        "0x1000", "build/bootloader/bootloader.bin", "…"]},
+  "console": {"tx_gpio": 1, "rx_gpio": 3, "baud": 115200, "format": "8N1", "levels": "3V3",
+              "commands": "upstream squeezelite-esp32's own console"},
+  "nvs": {"csv": "gen/nvs_config.csv", "partition": "settings",
+          "namespaces": {"config": {"dac_config": "model=I2S,bck=33,ws=26,do=25"}, "fwe": {}}},
+  "commands": [],
+  "test_hooks": [],
+  "verified": {"build": true, "host_tests": true, "hardware": false}
+}
+```
+
+`images` is every image `idf.py` flashes, in its order, with the NVS settings image last
+at the offset of upstream's `settings` partition; `file` is relative to `firmware/`.
+`flash.command` is run from `firmware/` and carries the flash mode, frequency and size
+`idf.py flash` would pass. `verified.build` is false once `gen/nvs_config.csv` or an image
+differs from what the build made, and `verified.host_tests` once our components or host
+tests have changed since they passed. `flash_mb`/`psram_mb` come from the module's
+ordering code and are null when it has none. `firmware.upstream_commit` is what was
+built; it differs from `pinned_commit` only if the build ran before a lock change was
+taken up. `nvs.namespaces` is what the pin map wrote, so /npie can compare it with what
+the board reports.
