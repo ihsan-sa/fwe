@@ -19,6 +19,7 @@ Runs in order, stopping at the first failure:
   esp32_build.py --workspace PCB-0029-A_hifi-lite [--platform I2S-4MFlash]
 
 JSON to stdout (or --out): {"ok", "step", "platform", "upstream", "werror",
+"sdkconfig": {platform, sdkconfig_fwe_sha256, regenerated},
 "artifacts": {file: {path, sha256}}, "flash": [[offset, file], ...] (files
 relative to firmware/build/), "flash_options", "nvs_csv_sha256",
 "log_tail"}. Once firmware/build/ exists it is also kept there as
@@ -58,6 +59,29 @@ def platform(fw: Path, override: str | None) -> str:
     cfg = fw / "sdkconfig.fwe"
     m = re.search(r"^#\s*PLATFORM=(\S+)", cfg.read_text(), re.M) if cfg.is_file() else None
     return m.group(1) if m else DEFAULT_PLATFORM
+
+
+def sdkconfig_key(fw: Path, plat: str) -> dict:
+    """What build/sdkconfig was generated from; it is only made again when it is missing."""
+    cfg = fw / "sdkconfig.fwe"
+    return {"platform": plat, "sdkconfig_fwe_sha256": sha256(cfg) if cfg.is_file() else None}
+
+
+def drop_stale_sdkconfig(bdir: Path, key: dict) -> bool:
+    """Remove build/sdkconfig when the last build's fwe_build.json shows another key (or none),
+    so a changed --platform or sdkconfig.fwe is applied rather than silently ignored."""
+    sdk = bdir / "sdkconfig"
+    if not sdk.is_file():
+        return False
+    last = bdir / "fwe_build.json"
+    try:
+        prev = json.loads(last.read_text()).get("sdkconfig") if last.is_file() else None
+    except ValueError:
+        prev = None
+    if isinstance(prev, dict) and all(prev.get(k) == v for k, v in key.items()):
+        return False
+    sdk.unlink()
+    return True
 
 
 def idf(env: dict, *args: str, cwd: Path, timeout: int = 5400) -> subprocess.CompletedProcess:
@@ -131,6 +155,8 @@ def build(ws: Path, plat_arg: str | None) -> tuple[int, dict]:
         return 2, {**res, "step": "idf", "error": f"upstream has no {defaults.name}"}
     bdir = fw / "build"
     bdir.mkdir(exist_ok=True)
+    key = sdkconfig_key(fw, plat)
+    res["sdkconfig"] = {**key, "regenerated": drop_stale_sdkconfig(bdir, key)}
     sdk_defaults = [str(defaults)] + ([str(fw / "sdkconfig.fwe")] if (fw / "sdkconfig.fwe").is_file() else [])
     p = idf(env, "idf.py", "-C", str(up), "-B", str(bdir), f"-DSDKCONFIG={bdir / 'sdkconfig'}",
             f"-DSDKCONFIG_DEFAULTS={';'.join(sdk_defaults)}", "-DDEPTH=16", "build", cwd=fw)
