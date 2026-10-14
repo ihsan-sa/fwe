@@ -80,6 +80,36 @@ def test_setup_check_misses_a_half_install(tmp_path, monkeypatch):
     assert (rc, res["items"][0]["status"]) == (1, "missing")
 
 
+def _fake_run(calls, head):
+    def fake(cmd, env=None, timeout=3600):
+        calls.append(cmd)
+        if cmd[0] == "git" and cmd[-2:] == ["rev-parse", "HEAD"]:
+            return head
+        return ""
+    return fake
+
+
+def test_setup_without_uv_fails_before_cloning(tmp_path, monkeypatch):
+    monkeypatch.setenv("FWE_TOOLS_DIR", str(tmp_path / "tools"))
+    calls = []
+    monkeypatch.setattr(fwe_setup.shutil, "which", lambda name: None)
+    monkeypatch.setattr(fwe_setup, "_run", _fake_run(calls, ""))
+    rc, res = run(fwe_setup, ["--only", "esp-idf"], tmp_path)
+    assert (rc, res["items"][0]["status"]) == (2, "error")
+    assert "uv not on PATH" in res["items"][0]["detail"] and calls == []
+
+
+def test_setup_retry_keeps_a_clone_at_the_pinned_commit(tmp_path, monkeypatch):
+    e = _idf_tree(tmp_path, monkeypatch, None)          # cloned, tools never finished
+    calls = []
+    monkeypatch.setattr(fwe_setup.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(fwe_setup, "_run", _fake_run(calls, e["commit"]))
+    rc, res = run(fwe_setup, ["--only", "esp-idf"], tmp_path)
+    assert (rc, res["items"][0]["status"]) == (0, "installed")
+    assert not [c for c in calls if "clone" in c]
+    assert any(c[:3] == ["uv", "python", "install"] for c in calls)
+
+
 def test_setup_check_misses_an_install_at_another_commit(tmp_path, monkeypatch):
     _idf_tree(tmp_path, monkeypatch, "0" * 40 + "\nesp32\n3.8\n")
     rc, res = run(fwe_setup, ["--check", "--frameworks"], tmp_path)

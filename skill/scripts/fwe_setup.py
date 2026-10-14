@@ -160,23 +160,36 @@ def _run(cmd: list[str], env: dict | None = None, timeout: int = 3600) -> str:
     return r.stdout.strip()
 
 
+def _framework_head(root: Path) -> str | None:
+    """The commit a cloned framework tree is at, or None when there is no tree."""
+    if not (root / "tools" / "idf.py").is_file():
+        return None
+    try:
+        return _run(["git", "-C", str(root), "rev-parse", "HEAD"], timeout=60)
+    except (RuntimeError, OSError, subprocess.TimeoutExpired):
+        return None
+
+
 def _install_framework(entry: dict) -> str:
     """Clone the pinned tag with submodules, check the commit, then let IDF's
     idf_tools.py fetch its compilers and build its python env, as upstream's
-    Dockerfile does. The marker is written last, so a half install re-runs."""
-    root = fwenv.framework_root(entry)
-    part = root.with_name(root.name + ".part")
-    shutil.rmtree(part, ignore_errors=True)
-    _run(["git", "clone", "-q", "--depth", "1", "--branch", entry["tag"], "--recursive",
-          "--shallow-submodules", "-j", "8", entry["repo"], str(part)])
-    head = _run(["git", "-C", str(part), "rev-parse", "HEAD"])
-    if head != entry["commit"]:
-        shutil.rmtree(part, ignore_errors=True)
-        raise RuntimeError(f"tag {entry['tag']} is {head}, lock says {entry['commit']}")
-    shutil.rmtree(root, ignore_errors=True)
-    part.rename(root)
+    Dockerfile does. The marker is written last, so a half install re-runs;
+    uv is checked before the clone, and a tree already at the pinned commit
+    (a half install) is kept, so a retry does not fetch 2 GB again."""
     if not shutil.which("uv"):
         raise RuntimeError(f"uv not on PATH, needed for python {entry['python']}")
+    root = fwenv.framework_root(entry)
+    if _framework_head(root) != entry["commit"]:
+        part = root.with_name(root.name + ".part")
+        shutil.rmtree(part, ignore_errors=True)
+        _run(["git", "clone", "-q", "--depth", "1", "--branch", entry["tag"], "--recursive",
+              "--shallow-submodules", "-j", "8", entry["repo"], str(part)])
+        head = _run(["git", "-C", str(part), "rev-parse", "HEAD"])
+        if head != entry["commit"]:
+            shutil.rmtree(part, ignore_errors=True)
+            raise RuntimeError(f"tag {entry['tag']} is {head}, lock says {entry['commit']}")
+        shutil.rmtree(root, ignore_errors=True)
+        part.rename(root)
     _run(["uv", "python", "install", entry["python"]])      # a no-op when present
     py = _run(["uv", "python", "find", entry["python"]])
     env = fwenv.idf_env(entry)
