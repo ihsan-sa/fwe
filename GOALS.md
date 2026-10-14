@@ -31,7 +31,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   did three of item 3's six (a build timeout is a failed `build` step, not a traceback; offline tests for the
   flash-args parsing and the "IDF missing" step); [#21](https://github.com/ihsan-sa/fwe/pull/21) did two more (setup
   checks uv before cloning ESP-IDF and keeps a clone already at the pinned commit; the esp32-build recipe's exit codes
-  match the script); the dispatch/22 branch does the last (the AK4493S address reads both CAD1 and CAD0, and its
+  match the script); [#23](https://github.com/ihsan-sa/fwe/pull/23) did the last (the AK4493S address reads both CAD1 and CAD0, and its
   SMUTE pin mutes high). Left: ticking #11's boxes and closing it, which a run cannot do from here.
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
@@ -60,7 +60,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   hi-fi netlist, and the pull request is merged.
 - **Note:** this goal and the review fixes above both touch `squeezelite.py` and `codecs.json`, so do them one after the
   other.
-- **Pull requests:** none yet.
+- **Pull requests:** the dispatch/24 branch starts item 1: `fwe_pd_limit`'s `core/` (CH224A register decode, the
+  28 V EPR, 20 V fallback and 5 V cases, the volume cap) and its host test. Left in item 1: the ESP-IDF glue (CH224A
+  I2C read, rail ADC, applying the cap).
 
 ### Add the hi-fi sub crossover DSP and phone web app
 

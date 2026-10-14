@@ -64,7 +64,7 @@ def test_scaffold_clones_pinned_commit_and_links_components(board):
     up = fw / "upstream"
     assert res["template"] == "esp32"
     assert res["upstream"]["commit"] == pin["commit"]   # the pin, not the repo's tip
-    assert res["linked"] == ["fwe_board", "fwe_stub"]
+    assert res["linked"] == ["fwe_board", "fwe_pd_limit", "fwe_stub"]
     assert (up / "components" / "fwe_stub").resolve() == (fw / "components" / "fwe_stub").resolve()
     assert (up / "components" / "fwe_stub" / "core" / "fwe_stub.c").is_file()
     assert git(up, "status", "--porcelain") == ""        # the links never show in upstream
@@ -101,7 +101,7 @@ def test_host_tests_pass_on_the_template(board):
     fw_scaffold.scaffold(ws, fetch=False)
     rc, res = esp32_test.run(ws / "firmware")
     assert rc == 0, res
-    assert [t["name"] for t in res["tests"]] == ["test_fwe_stub"]
+    assert [t["name"] for t in res["tests"]] == ["test_fwe_pd_limit", "test_fwe_stub"]
 
 
 def test_host_tests_fail_on_a_wrong_result_and_on_a_warning(board):
@@ -111,11 +111,12 @@ def test_host_tests_fail_on_a_wrong_result_and_on_a_warning(board):
     core = fw / "components" / "fwe_stub" / "core" / "fwe_stub.c"
     core.write_text(core.read_text().replace("return lo;", "return hi;"))
     rc, res = esp32_test.run(fw)
-    assert rc == 1 and not res["tests"][0]["ok"]
+    by_name = {t["name"]: t for t in res["tests"]}
+    assert rc == 1 and not by_name["test_fwe_stub"]["ok"] and by_name["test_fwe_pd_limit"]["ok"]
     core.write_text(core.read_text().replace("return hi;", "return lo;")
                     + "static int unused_fn(void) { return 0; }\n")
     rc, res = esp32_test.run(fw)
-    assert rc == 1 and res["tests"][0]["output"].startswith("build:")
+    assert rc == 1 and all(t["output"].startswith("build:") for t in res["tests"])
 
 
 def test_werror_check_flags_an_fwe_source_built_without_it(tmp_path):
