@@ -179,6 +179,47 @@ def test_build_without_a_scaffolded_upstream_is_an_error(board):
     assert rc == 2 and res["step"] == "upstream"
 
 
+def test_flash_args_split_options_from_offsets():
+    text = ("--flash_mode dio --flash_freq 80m --flash_size 4MB\n0x1000 bootloader/bootloader.bin\n"
+            "0x10000 squeezelite.bin\n0x8000 partition_table/partition-table.bin\n")
+    opts, flash = esp32_build.flash_args(text)
+    assert opts == ["--flash_mode", "dio", "--flash_freq", "80m", "--flash_size", "4MB"]
+    assert flash == [["0x1000", "bootloader/bootloader.bin"], ["0x10000", "squeezelite.bin"],
+                     ["0x8000", "partition_table/partition-table.bin"]]
+    assert esp32_build.flash_args("") == ([], [])
+
+
+def scaffolded_with_idf(board, tmp_path, monkeypatch):
+    """A scaffolded board at the pin, with ESP-IDF taken as installed and idf() replaced."""
+    ws, _, _ = board
+    assert fw_scaffold.scaffold(ws)[0] == 0
+    monkeypatch.setenv("FWE_TOOLS_DIR", str(tmp_path / "tools"))
+    monkeypatch.setattr(esp32_build, "_framework_ok", lambda e: (True, "test"))
+    return ws
+
+
+def test_build_without_esp_idf_says_how_to_install_it(board, tmp_path, monkeypatch):
+    ws, _, _ = board
+    assert fw_scaffold.scaffold(ws)[0] == 0
+    monkeypatch.setenv("FWE_TOOLS_DIR", str(tmp_path / "no-tools"))
+    rc, res = esp32_build.build(ws, None)
+    assert rc == 2 and res["step"] == "idf"
+    assert "missing" in res["error"] and "fwe_setup.py --only esp-idf" in res["error"]
+
+
+def test_a_build_that_times_out_is_a_failed_build_step(board, tmp_path, monkeypatch):
+    ws = scaffolded_with_idf(board, tmp_path, monkeypatch)
+
+    def slow(env, *args, cwd, timeout=5400):
+        raise subprocess.TimeoutExpired(args, timeout, output=b"[12/900] Building C object\n")
+
+    monkeypatch.setattr(esp32_build, "idf", slow)
+    rc, res = esp32_build.build(ws, None)
+    assert rc == 1 and res["step"] == "build" and "timed out after 5400s" in res["error"]
+    log = (ws / "firmware" / "build" / "fwe_build.log").read_text()
+    assert log.startswith("[12/900] Building C object") and "timed out" in log
+
+
 def fake_build(fw: Path, ok: bool = True) -> None:
     """Images and a fwe_build.json as esp32_build.py leaves them."""
     b = fw / "build"
