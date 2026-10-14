@@ -151,6 +151,22 @@ def test_nvs_csv_round_trips_through_csv_and_refuses_long_keys():
         raise AssertionError("a 16-character key must be refused")
 
 
+def test_later_series_are_told_apart_from_the_classic_esp32():
+    for part in ("ESP32-WROVER-E-N8R8", "ESP32-WROOM-32E", "ESP32-PICO-D4", "ESP32-SOLO-1", "ESP32-D0WD-V3"):
+        assert squeezelite.later_series(part) is None, part
+    assert squeezelite.later_series("ESP32-S3-WROOM-1-N16R8") == "ESP32-S3"
+    assert squeezelite.later_series("ESP32-C3-MINI-1") == "ESP32-C3"
+    assert squeezelite.later_series("esp32c6-wroom-1") == "ESP32-C6"
+
+
+def test_a_c3_or_s3_board_is_refused_not_given_classic_pins(tmp_path, capsys):
+    for part in ("ESP32-S3-WROOM-1-N16R8", "ESP32-C3-MINI-1"):
+        ws = write_board(tmp_path / part, base_nets(), {U: part, "U2": "PCM5102APWR"})
+        assert pinmap.main(["--workspace", str(ws)]) == 2
+        assert part[:8] in json.loads(capsys.readouterr().out)["error"]
+        assert not (ws / "firmware").exists()
+
+
 def test_main_writes_csv_and_check_catches_a_respin(tmp_path, capsys):
     ws = write_board(tmp_path, base_nets(), {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR"})
     assert pinmap.main(["--workspace", str(ws)]) == 0

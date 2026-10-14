@@ -11,7 +11,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 
 ### Fix the review findings from #10
 
-- **Status:** open.
+- **Status:** open
 - **What:** the review of the ESP32 target ([#10](https://github.com/ihsan-sa/fwe/pull/10)) left eight follow-ups,
   listed in [issue #11](https://github.com/ihsan-sa/fwe/issues/11).
   1. ESP32-C3 and ESP32-S3 parts take the classic ESP32 path. Detection in `skill/scripts/pinmap.py` and
@@ -25,11 +25,11 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
      "IDF missing" step.
 - **Done when:** every checkbox in #11 is ticked, each fix has a test where one fits, `make check` passes, and the pull
   request that closes #11 is merged.
-- **Pull requests:** none yet.
+- **Pull requests:** the dispatch/13 branch does item 1 (C3/S3 parts are refused by pinmap, scaffold and manifest).
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 
-- **Status:** open.
+- **Status:** open
 - **What:** the hi-fi streamer boards are ESP32 boards running squeezelite-esp32, the target #10 added. This goal adds
   two ESP-IDF components of our own under `skill/templates/esp32/components/`, shaped like the `fwe_stub` example there:
   logic that needs no ESP-IDF in `core/`, tested on the host by `skill/templates/esp32/tests/host/`, the ESP-IDF glue
@@ -57,7 +57,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 
 ### Add the hi-fi sub crossover DSP and phone web app
 
-- **Status:** open.
+- **Status:** open
 - **What:** two more components of our own under `skill/templates/esp32/components/`, shaped like `fwe_stub`.
   1. `fwe_xover`, a sub crossover (an LR4 at about 80 Hz, for example) with per-sub level and delay, out on the second
      I2S port. The coefficients are computed in `core/`, and host tests check them.
