@@ -123,6 +123,19 @@ def partition(build: Path, env: dict, name: str) -> tuple[str, str] | None:
     return None
 
 
+def flash_args(text: str) -> tuple[list[str], list[list[str]]]:
+    """(options, [[offset, file], ...]) from idf.py's flash_project_args: the
+    --flash_mode/--flash_freq/--flash_size options come before the first offset."""
+    toks = text.split()
+    first = next((i for i, t in enumerate(toks) if t.startswith("0x")), len(toks))
+    return toks[:first], [[o, f] for o, f in zip(toks[first::2], toks[first + 1::2]) if o.startswith("0x")]
+
+
+def _tail(out) -> str:
+    """Output a timed-out subprocess caught so far (bytes or str, or None)."""
+    return out.decode(errors="replace") if isinstance(out, bytes) else (out or "")
+
+
 def build(ws: Path, plat_arg: str | None) -> tuple[int, dict]:
     fw = ws / "firmware"
     res: dict = {"ok": False}
@@ -158,11 +171,16 @@ def build(ws: Path, plat_arg: str | None) -> tuple[int, dict]:
     key = sdkconfig_key(fw, plat)
     res["sdkconfig"] = {**key, "regenerated": drop_stale_sdkconfig(bdir, key)}
     sdk_defaults = [str(defaults)] + ([str(fw / "sdkconfig.fwe")] if (fw / "sdkconfig.fwe").is_file() else [])
-    p = idf(env, "idf.py", "-C", str(up), "-B", str(bdir), f"-DSDKCONFIG={bdir / 'sdkconfig'}",
-            f"-DSDKCONFIG_DEFAULTS={';'.join(sdk_defaults)}", "-DDEPTH=16", "build", cwd=fw)
-    (bdir / "fwe_build.log").write_text(p.stdout + p.stderr)
-    res["log_tail"] = (p.stdout + p.stderr).strip().splitlines()[-25:]
-    if p.returncode:
+    try:
+        p = idf(env, "idf.py", "-C", str(up), "-B", str(bdir), f"-DSDKCONFIG={bdir / 'sdkconfig'}",
+                f"-DSDKCONFIG_DEFAULTS={';'.join(sdk_defaults)}", "-DDEPTH=16", "build", cwd=fw)
+        log, failed = p.stdout + p.stderr, p.returncode
+    except subprocess.TimeoutExpired as e:
+        log, failed = _tail(e.stdout) + _tail(e.stderr) + f"\nfwe: idf.py build timed out after {e.timeout}s\n", 1
+        res["error"] = f"idf.py build timed out after {e.timeout}s"
+    (bdir / "fwe_build.log").write_text(log)
+    res["log_tail"] = log.strip().splitlines()[-25:]
+    if failed:
         return 1, {**res, "step": "build"}
 
     ok, bad = werror_sources(bdir)
@@ -172,24 +190,24 @@ def build(ws: Path, plat_arg: str | None) -> tuple[int, dict]:
 
     try:
         part = partition(bdir, env, NVS_PARTITION)
-    except RuntimeError as e:
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
         return 1, {**res, "step": "nvs", "error": str(e)}
     if not part:
         return 1, {**res, "step": "nvs", "error": f"no {NVS_PARTITION} partition in the table"}
     nvs_bin = bdir / "nvs_config.bin"
     nvs_bin.unlink(missing_ok=True)
-    p = idf(env, "python", f"{env['IDF_PATH']}/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py",
-            "generate", str(fw / "gen" / "nvs_config.csv"), str(nvs_bin), part[1], cwd=fw, timeout=120)
+    try:
+        p = idf(env, "python", f"{env['IDF_PATH']}/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py",
+                "generate", str(fw / "gen" / "nvs_config.csv"), str(nvs_bin), part[1], cwd=fw, timeout=120)
+    except subprocess.TimeoutExpired as e:
+        return 1, {**res, "step": "nvs", "error": f"nvs_partition_gen.py timed out after {e.timeout}s"}
     if p.returncode or not nvs_bin.is_file():   # it exits 0 on a bad argument
         return 1, {**res, "step": "nvs", "log_tail": (p.stdout + p.stderr).strip().splitlines()[-15:]}
 
     flash = []
     fa = bdir / "flash_project_args"
     if fa.is_file():
-        toks = fa.read_text().split()
-        first = next((i for i, t in enumerate(toks) if t.startswith("0x")), len(toks))
-        res["flash_options"] = toks[:first]     # --flash_mode/--flash_freq/--flash_size, as idf.py flashes
-        flash = [[o, f] for o, f in zip(toks, toks[1:]) if o.startswith("0x")]
+        res["flash_options"], flash = flash_args(fa.read_text())   # options as idf.py flashes
     res["flash"] = flash + [[part[0], str(nvs_bin.relative_to(bdir))]]
     res["nvs_csv_sha256"] = sha256(fw / "gen" / "nvs_config.csv")
     res["artifacts"] = {f: {"path": str(bdir / f), "sha256": sha256(bdir / f)}
