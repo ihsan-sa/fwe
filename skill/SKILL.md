@@ -37,6 +37,11 @@ these, and any other task only to the MCU verbs. Gateware also lives in
 the UART register protocol and the /npie manifest. Its sim and synthesis run
 on chip-flow's `bin/eda`, and the bench reuses /vde's cocotblib.
 
+ESP32 verbs (so far): `esp32-setup` `esp32-pinmap`. A task that names the
+ESP32 (esp32, esp-idf, idf.py, squeezelite, wrover) routes only to these. The
+firmware is upstream squeezelite-esp32 at the commit the lock's `upstreams`
+pins, built with the ESP-IDF its `frameworks` entry pins.
+
 ## Rules
 
 1. The firmware lives in the board's workspace (`firmware/`) and lands through

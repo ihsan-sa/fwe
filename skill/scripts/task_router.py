@@ -6,8 +6,9 @@ one-line summary, the steps (script commands bound to the workspace, or
 `agent:` steps the session does itself) and its recipe doc
 reference/recipes/<verb>.md, which the session reads before executing.
 A task that names an FPGA (fpga, gateware, verilog, rtl, bitstream, serdes,
-yosys, nextpnr, cocotb) matches only the `fpga-*` verbs; any other task
-matches only the MCU verbs.
+yosys, nextpnr, cocotb) matches only the `fpga-*` verbs; one that names the
+ESP32 (esp32, esp-idf, idf.py, squeezelite, wrover) only the `esp32-*` verbs;
+any other task matches only the MCU verbs.
 
   task_router.py --task "build the firmware" --workspace PCB-0018-A_bldc-motor-driver
   task_router.py --verb test --workspace <board>
@@ -124,6 +125,21 @@ VERBS = {
                   "fpga_manifest.py --workspace {ws} --check",
                   "agent: read the diff against the recipe's list"],
     },
+    "esp32-setup": {
+        "target": "esp32",
+        "match": [r"\b(setup|install|toolchain|fetch|idf)\b"],
+        "summary": "install or check ESP-IDF at the version upstream squeezelite-esp32 builds with "
+                   "(about 2 GB, into ~/.local/fwe-tools)",
+        "workspace": False,
+        "steps": ["fwe_setup.py --only esp-idf"],
+    },
+    "esp32-pinmap": {
+        "target": "esp32",
+        "match": [r"\bpin ?map\b", r"\bpins?\b", r"\bnvs\b", r"\bregenerate\b"],
+        "summary": "derive squeezelite-esp32's NVS settings (firmware/gen/nvs_config.csv) and "
+                   "gen/board_pins.h from the board's netlist",
+        "steps": ["pinmap.py --workspace {ws}"],
+    },
     "full-run": {
         "match": [r"\b(full.?run|end to end|from scratch|firmware for)\b", r"^run (on|for)\b"],
         "summary": "the whole path for a board: setup, scaffold, build, host tests",
@@ -157,12 +173,17 @@ def plan(verb: str, ws: str | None) -> tuple[int, dict]:
 
 
 FPGA = re.compile(r"\b(fpga|gateware|verilog|rtl|bitstream|serdes|gearbox|yosys|nextpnr|cocotb|ecp5)\b")
+ESP32 = re.compile(r"\b(esp32|esp-idf|idf\.py|squeezelite|wrover)\b")
+
+
+def target(v: dict) -> str:
+    return "fpga" if v.get("fpga") else v.get("target", "mcu")
 
 
 def match(task: str) -> list[str]:
     t = task.lower().strip()
-    fpga = bool(FPGA.search(t))
-    return [n for n, v in VERBS.items() if v.get("fpga", False) == fpga
+    want = "fpga" if FPGA.search(t) else "esp32" if ESP32.search(t) else "mcu"
+    return [n for n, v in VERBS.items() if target(v) == want
             and any(re.search(rx, t) for rx in v["match"])]
 
 

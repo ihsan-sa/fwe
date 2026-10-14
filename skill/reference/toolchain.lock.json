@@ -31,5 +31,18 @@
      "repo": "https://github.com/ARM-software/CMSIS_5",
      "commit": "2b7495b8535bdcb306dac29b9ded4cfb679d7e5c",
      "paths": ["CMSIS/Core/Include"]}
+  ],
+  "frameworks": [
+    {"name": "esp-idf", "version": "v4.4.8",
+     "repo": "https://github.com/espressif/esp-idf",
+     "tag": "v4.4.8", "commit": "e499576efdb086551abe309a72899302f82077b7",
+     "targets": ["esp32"], "python": "3.8",
+     "pinned_from": "squeezelite-esp32 af2e157f3d0d: Dockerfile IDF_CLONE_BRANCH_OR_TAG/IDF_CHECKOUT_REF, the image .github/workflows/Platform_build.yml builds in (sle118/squeezelite-esp32-idfv448:4.4.8), python3.8 as that image"}
+  ],
+  "upstreams": [
+    {"name": "squeezelite-esp32", "version": "af2e157f3d0d",
+     "repo": "https://github.com/sle118/squeezelite-esp32",
+     "branch": "master-v4.3", "commit": "af2e157f3d0d9cca57c1267393c6a6846278945b",
+     "comment": "The firmware the esp32 scaffold builds on, taken with its submodules into <workspace>/firmware/upstream; our code sits beside it as components. master-v4.3 is upstream's default branch and builds on IDF v4.4.8 despite its name."}
   ]
 }

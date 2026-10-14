@@ -8,13 +8,20 @@ source is a sparse, shallow git fetch of the pinned commit into
 <tools>/src/<name>-<version>/, re-fetched when the lock's commit or paths
 change or a pinned path is gone; a tree whose .fwe-commit holds only the
 commit (written before the marker listed paths) counts as present when every
-pinned path is there. <tools> is FWE_TOOLS_DIR, default
-~/.local/fwe-tools. Nothing needs root; no apt, no containers.
+pinned path is there. A framework (ESP-IDF, for the esp32 target) is a
+shallow clone of its pinned tag with submodules into <tools>/<name>-<version>/,
+checked to be the pinned commit, then IDF's own idf_tools.py installs the
+compilers for the pinned targets and its python env (on the python the lock
+names, from uv) into <tools>/espressif/. Frameworks are big (about 2 GB), so
+they install only when asked for: --only esp-idf, or --frameworks.
+<tools> is FWE_TOOLS_DIR, default ~/.local/fwe-tools. Nothing needs root; no
+apt, no containers.
 
 Usage:
   fwe_setup.py            install whatever is missing, then check
   fwe_setup.py --check    only check (exit 1 when something is missing)
   fwe_setup.py --only NAME [--only NAME]
+  fwe_setup.py --frameworks       also ESP-IDF (the esp32 target)
 
 JSON to stdout (or --out): {"ok", "tools_dir", "items": [{name, version,
 status: ok|missing|installed|error, detail}]}. Exit 0 all present, 1 some
@@ -130,20 +137,86 @@ def _install_source(entry: dict) -> str:
     return f"checked out {entry['commit'][:12]}"
 
 
+def _framework_marker(entry: dict) -> str:
+    """What a finished install wrote: a changed commit, target or python re-installs."""
+    return "\n".join([entry["commit"], ",".join(entry["targets"]), entry["python"]]) + "\n"
+
+
+def _framework_ok(entry: dict) -> tuple[bool, str]:
+    root = fwenv.framework_root(entry)
+    mark = root / ".fwe-installed"
+    if not (root / "tools" / "idf.py").is_file():
+        return False, f"{root} missing"
+    if not mark.is_file() or mark.read_text() != _framework_marker(entry):
+        return False, f"{root}: not installed at {entry['commit'][:12]} for {entry['targets']}"
+    return True, f"{entry['version']} at {entry['commit'][:12]}, targets {','.join(entry['targets'])}"
+
+
+def _run(cmd: list[str], env: dict | None = None, timeout: int = 3600) -> str:
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
+    if r.returncode:
+        raise RuntimeError(f"{' '.join(cmd[:4])}: {(r.stderr or r.stdout).strip()[-400:]}")
+    return r.stdout.strip()
+
+
+def _install_framework(entry: dict) -> str:
+    """Clone the pinned tag with submodules, check the commit, then let IDF's
+    idf_tools.py fetch its compilers and build its python env, as upstream's
+    Dockerfile does. The marker is written last, so a half install re-runs."""
+    root = fwenv.framework_root(entry)
+    part = root.with_name(root.name + ".part")
+    shutil.rmtree(part, ignore_errors=True)
+    _run(["git", "clone", "-q", "--depth", "1", "--branch", entry["tag"], "--recursive",
+          "--shallow-submodules", "-j", "8", entry["repo"], str(part)])
+    head = _run(["git", "-C", str(part), "rev-parse", "HEAD"])
+    if head != entry["commit"]:
+        shutil.rmtree(part, ignore_errors=True)
+        raise RuntimeError(f"tag {entry['tag']} is {head}, lock says {entry['commit']}")
+    shutil.rmtree(root, ignore_errors=True)
+    part.rename(root)
+    if not shutil.which("uv"):
+        raise RuntimeError(f"uv not on PATH, needed for python {entry['python']}")
+    _run(["uv", "python", "install", entry["python"]])      # a no-op when present
+    py = _run(["uv", "python", "find", entry["python"]])
+    env = fwenv.idf_env(entry)
+    tools = [py, str(root / "tools" / "idf_tools.py"), "--non-interactive"]
+    _run(tools + ["install", "--targets=" + ",".join(entry["targets"]), "required"], env)
+    _run(tools + ["install", "cmake"], env)
+    # IDF wants the virtualenv package on the base python to make its env, and
+    # pip-installs it --user when it is missing, which uv's python refuses. A
+    # seeded uv venv at the path IDF computes is one it accepts and fills.
+    idf_mm = ".".join(entry["tag"].lstrip("v").split(".")[:2])
+    venv = fwenv.idf_tools_path() / "python_env" / f"idf{idf_mm}_py{entry['python']}_env"
+    if not (venv / "bin" / "python").exists():
+        _run(["uv", "venv", "-q", "--seed", "--python", py, str(venv)])
+    _run(tools + ["install-python-env"], env)
+    (root / ".fwe-installed").write_text(_framework_marker(entry))
+    return f"cloned {entry['tag']} and installed its tools with python {entry['python']}"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true", help="check only, install nothing")
     ap.add_argument("--only", action="append", default=[], help="limit to these names")
+    ap.add_argument("--frameworks", action="store_true",
+                    help="also the frameworks (ESP-IDF), which install only when asked")
     ap.add_argument("--out", help="write the JSON here instead of stdout")
     a = ap.parse_args(argv)
     lk = fwenv.lock()
     items, failed, missing = [], False, False
-    for kind, entries in (("tarball", lk["tarballs"]), ("source", lk["sources"])):
+    probe = {"tarball": _probe, "source": lambda e: (_source_ok(e), ""),
+             "framework": _framework_ok}
+    install = {"tarball": _install_tarball, "source": _install_source,
+               "framework": _install_framework}
+    for kind, entries in (("tarball", lk["tarballs"]), ("source", lk["sources"]),
+                          ("framework", lk.get("frameworks", []))):
         for e in entries:
             if a.only and e["name"] not in a.only:
                 continue
+            if kind == "framework" and not (a.frameworks or e["name"] in a.only):
+                continue
             it = {"name": e["name"], "version": e["version"], "kind": kind}
-            present, detail = _probe(e) if kind == "tarball" else (_source_ok(e), "")
+            present, detail = probe[kind](e)
             if present:
                 it.update(status="ok", detail=detail)
             elif a.check:
@@ -151,8 +224,8 @@ def main(argv=None) -> int:
                 missing = True
             else:
                 try:
-                    note = _install_tarball(e) if kind == "tarball" else _install_source(e)
-                    ok, detail = _probe(e) if kind == "tarball" else (_source_ok(e), note)
+                    note = install[kind](e)
+                    ok, detail = probe[kind](e)
                     it.update(status="installed" if ok else "error", detail=detail or note)
                     failed |= not ok
                 except Exception as exc:  # report every item, fail at the end

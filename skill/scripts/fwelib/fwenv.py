@@ -2,7 +2,9 @@
 
 Tools install under FWE_TOOLS_DIR (default ~/.local/fwe-tools) from
 reference/toolchain.lock.json: tarballs into <dir>/<name>-<version>/, pinned
-sources into <dir>/src/<name>-<version>/. Nothing here needs root.
+sources into <dir>/src/<name>-<version>/, frameworks (ESP-IDF) into
+<dir>/<name>-<version>/ with their tools under <dir>/espressif/. Nothing
+here needs root.
 
 Board workspaces are hwde's (https://github.com/ihsan-sa/hwde): they live
 under HWDE_BOARDS_ROOT, default ~/dev/boards. boards_root() is a copy of
@@ -54,6 +56,33 @@ def source(name: str) -> Path:
         if s["name"] == name:
             return source_root(s)
     raise KeyError(name)
+
+
+def framework(name: str) -> dict:
+    for f in lock().get("frameworks", []):
+        if f["name"] == name:
+            return f
+    raise KeyError(name)
+
+
+def framework_root(entry: dict) -> Path:
+    """An SDK checkout (ESP-IDF) with its submodules: <dir>/<name>-<version>/."""
+    return tools_dir() / f"{entry['name']}-{entry['version']}"
+
+
+def idf_tools_path() -> Path:
+    """IDF_TOOLS_PATH: the xtensa compilers and IDF's python env, under the tools dir."""
+    return tools_dir() / "espressif"
+
+
+def idf_env(entry: dict | None = None) -> dict:
+    """os.environ with IDF_PATH and IDF_TOOLS_PATH set for the pinned ESP-IDF.
+    A build still sources $IDF_PATH/export.sh for PATH; this only names where."""
+    entry = entry or framework("esp-idf")
+    e = dict(os.environ)
+    e["IDF_PATH"] = str(framework_root(entry))
+    e["IDF_TOOLS_PATH"] = str(idf_tools_path())
+    return e
 
 
 def boards_root() -> Path:
