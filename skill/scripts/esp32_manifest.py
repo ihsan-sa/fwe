@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fwelib import fwenv, upstream  # noqa: E402
+from fwelib import fwenv, squeezelite, upstream  # noqa: E402
 from esp32_test import inputs_hash  # noqa: E402
 
 SCHEMA = "fwe-esp32-manifest/1"
@@ -55,6 +55,8 @@ def derive(fw: Path) -> tuple[dict | None, str | None]:
     pm = _json(fw / "pinmap.json")
     if not pm:
         return None, "no firmware/pinmap.json: run pinmap.py"
+    if squeezelite.later_series(pm["mcu"]["part"]):
+        return None, f"{pm['mcu']['part']} is not a classic ESP32: no xtensa-lx6 manifest for it"
     b = _json(fw / "build" / "fwe_build.json")
     if not b or not b.get("artifacts"):
         return None, "no firmware/build/fwe_build.json with images: run esp32_build.py"

@@ -24,6 +24,18 @@ import io
 import json
 import re
 
+# A later ESP32 series (ESP32-C3, -S3, -S2, -C6, -H2, -P4, ...) has other pins and
+# another core; this target's tables are the classic ESP32's (WROVER, WROOM-32,
+# PICO-D4, SOLO-1, D0WD).
+_LATER = re.compile(r"ESP32-?([CSHP]\d+)", re.I)
+
+
+def later_series(part: str) -> str | None:
+    """"ESP32-S3" for an ESP32-S3 part and so on, None for a classic ESP32."""
+    m = _LATER.match(part.strip())
+    return f"ESP32-{m.group(1).upper()}" if m else None
+
+
 # ESP32 module pin functions that are GPIOs, besides IO<n>/GPIO<n>.
 _ALIAS = {"SENSOR_VP": 36, "SENSOR_VN": 39, "TXD0": 1, "RXD0": 3, "U0TXD": 1, "U0RXD": 3}
 _IO = re.compile(r"^(?:GPIO|IO)(\d{1,2})$")

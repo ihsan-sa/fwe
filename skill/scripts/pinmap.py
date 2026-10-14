@@ -424,6 +424,9 @@ def build(ws: Path, mcu_ref: str | None) -> dict:
     mcu = find_mcu(nl, mcu_ref)
     part = nl.comps[mcu]["value"]
     if part.upper().startswith("ESP32"):
+        if squeezelite.later_series(part):
+            raise Error(f"{part} is an {squeezelite.later_series(part)}; the esp32 target has the "
+                        "classic ESP32's pins and xtensa-lx6 core only (WROVER, WROOM-32, PICO-D4)")
         return build_esp32(ws, netfile, nl, mcu, part)
     fam, table = load_mcu_table(part)
     findings: list[dict] = []

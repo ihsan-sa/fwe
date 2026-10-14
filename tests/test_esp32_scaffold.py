@@ -216,6 +216,18 @@ def test_module_sizes_from_the_ordering_code():
     assert esp32_manifest.module("ESP32-WROVER-E")["flash_mb"] is None
 
 
+def test_s3_board_gets_no_template_and_no_xtensa_manifest(tmp_path):
+    ws = write_board(tmp_path, base_nets(), {"U1": "ESP32-S3-WROOM-1-N16R8", "U2": "PCM5102A"})
+    rc, res = fw_scaffold.scaffold(ws, fetch=False)
+    assert rc == 2 and "ESP32-S3" in res["error"]
+    assert not (ws / "firmware" / "components").exists()
+    fw = ws / "firmware"
+    fw.mkdir(exist_ok=True)
+    (fw / "pinmap.json").write_text(json.dumps({"board": "PCB-9998", "mcu": {"part": "ESP32-S3-WROOM-1"}}))
+    man, err = esp32_manifest.derive(fw)
+    assert man is None and "classic ESP32" in err
+
+
 def test_partition_sizes_as_the_table_prints_them_become_numbers():
     assert esp32_build._hex_size("64K") == "0x10000"
     assert esp32_build._hex_size("1M") == "0x100000"

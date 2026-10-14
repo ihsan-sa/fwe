@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fwelib import fwenv, upstream  # noqa: E402
+from fwelib import fwenv, squeezelite, upstream  # noqa: E402
 
 TEMPLATES = fwenv.SKILL / "templates"
 FAMILY = {"STM32G4": "stm32g4", "ESP32": "esp32"}
@@ -56,6 +56,8 @@ def scaffold(ws: Path, update: bool = False, fetch: bool = True) -> tuple[int, d
         return 2, {"ok": False, "error": f"pinmap: {pm.get('error')}"}
     part = pm["mcu"]["part"]
     fam = next((v for k, v in FAMILY.items() if part.startswith(k)), None)
+    if fam == "esp32" and squeezelite.later_series(part):
+        fam = None                      # the esp32 template is the classic ESP32's
     var = VARIANT.get(fam)
     if var and any(str(p.get("role", "")).startswith(var[0]) for p in pm.get("pins", [])):
         fam = var[1]
