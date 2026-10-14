@@ -81,7 +81,8 @@ ROLES = [
     (r"(?:UART|U0)_?(TXD?|RXD?)", "uart", None),
     (r"BOOT|IO0_BOOT", "boot", "in"),
 ]
-# A part's control pin -> the role it gives its GPIO and the level that means "on".
+# A part's control pin -> the role it gives its GPIO and the level that means "on"
+# (for mute, the level that mutes). A part's "active" in codecs.json overrides the level.
 PART_PIN_ROLE = {"enable": ("amp_en", 1), "fault": ("amp_fault", 0),
                  "warn": ("amp_warn", 0), "mute": ("dac_mute", 0)}
 DISPLAY_SIZE = {"SSD1306": (128, 64), "SH1106": (128, 64), "SSD1322": (256, 64), "ST7789": (240, 240)}
@@ -122,25 +123,39 @@ def find_parts(nl, codecs: dict) -> list[dict]:
     return out
 
 
+def _pin_names(func: str) -> set[str]:
+    """A shared pin's names: 'CAD0/CSN' {'CAD0', 'CSN', 'CAD0CSN'}, '/RESET' {'RESET'}."""
+    return {_pin_name(s) for s in (func or "").split("/") if s} | {_pin_name(func)}
+
+
 def _part_pin_net(nl, ref: str, name: str) -> str | None:
     for pin, net in nl.pins.get(ref, {}).items():
-        if _pin_name(nl.func.get((ref, pin), "")) == name:
+        if name in _pin_names(nl.func.get((ref, pin), "")):
             return net
     return None
 
 
+# CAD0/CAD1, AD0/AD1, ADR, ADDR, ADR0: a bare AD (an ADC input, say) is not a strap.
+_STRAP = re.compile(r"(?:C?AD(?=\d)|ADD?R)(\d?)")
+
+
 def _i2c_addr(nl, part: dict, findings: list) -> int | None:
+    """The address a part's strap pins pick. i2c_addr lists one address per strap
+    code, so with CAD1/CAD0 it is [00, 01, 10, 11]. A pin that is not tied to a
+    rail (a resistor-strapped ADR, say) or a count that does not fit is a finding."""
     addrs = part.get("i2c_addr") or []
     if len(addrs) == 1:
         return addrs[0]
-    straps = [n for p, n in nl.pins.get(part["ref"], {}).items()
-              if re.match(r"ADR|ADDR|AD0|CAD0", _pin_name(nl.func.get((part["ref"], p), "")))]
-    if len(straps) == 1 and len(addrs) >= 2:
-        v = nl.volts(straps[0])
-        if v == 0:
-            return addrs[0]
-        if v:
-            return addrs[1]
+    bits = {}
+    for p, n in nl.pins.get(part["ref"], {}).items():
+        m = next(filter(None, map(_STRAP.fullmatch, _pin_names(nl.func.get((part["ref"], p), "")))), None)
+        if m:
+            bits.setdefault(int(m.group(1) or 0), []).append(n)
+    if bits and len(addrs) == 2 ** len(bits) and sorted(bits) == list(range(len(bits))) \
+            and all(len(n) == 1 for n in bits.values()):
+        vs = {b: nl.volts(n[0]) for b, n in bits.items()}
+        if all(v is not None for v in vs.values()):
+            return addrs[sum(1 << b for b, v in vs.items() if v > 0)]
     findings.append({"kind": "i2c_addr_unknown", "ref": part["ref"], "part": part["part"],
                      "detail": f"its address straps do not fix one of {addrs}"})
     return None
@@ -174,7 +189,12 @@ def build(nl, mcu: str, codecs: dict) -> dict:
             p = by_net.get(net) if net else None
             if p:
                 p["role"], p["active"] = PART_PIN_ROLE[what]
+                p["active"] = part.get("active", {}).get(what, p["active"])
                 p["part"] = part["ref"]
+        if part.get("unchecked"):
+            findings.append({"kind": "codec_pins_unchecked", "ref": part["ref"], "part": part["part"],
+                             "detail": f"{', '.join(part['unchecked'])} not checked against the "
+                                       "datasheet (reference/esp32/codecs.json)"})
     for p in pins:
         if p["role"] != "unclassified":
             continue

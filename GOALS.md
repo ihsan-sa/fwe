@@ -29,9 +29,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   scaffold and manifest); [#16](https://github.com/ihsan-sa/fwe/pull/16) did item 2 (`fwe_build.json` keeps the
   platform and the `sdkconfig.fwe` hash, and a change drops `build/sdkconfig`); [#18](https://github.com/ihsan-sa/fwe/pull/18)
   did three of item 3's six (a build timeout is a failed `build` step, not a traceback; offline tests for the
-  flash-args parsing and the "IDF missing" step); the dispatch/20 branch does two more (setup checks uv before
-  cloning ESP-IDF and keeps a clone already at the pinned commit; the esp32-build recipe's exit codes match the
-  script). Left: the AK4493S strap and mute.
+  flash-args parsing and the "IDF missing" step); [#21](https://github.com/ihsan-sa/fwe/pull/21) did two more (setup
+  checks uv before cloning ESP-IDF and keeps a clone already at the pinned commit; the esp32-build recipe's exit codes
+  match the script); the dispatch/22 branch does the last (the AK4493S address reads both CAD1 and CAD0, and its
+  SMUTE pin mutes high). Left: ticking #11's boxes and closing it, which a run cannot do from here.
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 

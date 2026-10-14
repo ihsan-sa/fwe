@@ -114,6 +114,56 @@ def test_i2c_codec_gets_controlset_and_an_unverified_sequence_is_a_finding(tmp_p
     assert cfg["set_GPIO"] == "2=amp:1"
 
 
+def test_ak4493s_address_reads_both_straps_and_smute_mutes_high(tmp_path):
+    # i2c_addr is indexed by CAD1 CAD0; the old code read CAD0 alone, so CAD1 high gave 16 or 17.
+    for cad1, cad0, want in ((0, 0, 16), (0, 1, 17), (1, 0, 18), (1, 1, 19)):
+        straps = {"+3V3": [(U, "2", "3V3")], "GND": [(U, "1", "GND")]}
+        straps["+3V3" if cad1 else "GND"].append(("U2", "22", "CAD1"))
+        straps["+3V3" if cad0 else "GND"].append(("U2", "23", "CAD0"))
+        nets = [_net(rail, *nodes) for rail, nodes in straps.items()] + base_nets()[2:5] + [
+            _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+            _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+            _net("/audio/DAC_SOFTMUTE", (U, "14", "IO12"), ("U2", "6", "SMUTE")),
+        ]
+        ws = write_board(tmp_path / str(want), nets, {U: "ESP32-WROVER-E-N8R8", "U2": "AK4493SEQ"})
+        m = pinmap.build(ws, None)
+        kinds = {f["kind"] for f in m["findings"]}
+        assert "i2c_addr_unknown" not in kinds, want
+        # The address map and SMUTE level are not from the datasheet, so they stay a finding.
+        assert "codec_pins_unchecked" in kinds
+        f = m["squeezelite"]["config"]["dac_config"].split(",")
+        assert f"i2c={want}" in f and "mute=12:1" in f, (want, f)
+
+
+def _strap_board(tmp: Path, value: str, high: list, low: list) -> dict:
+    nets = [_net("+3V3", (U, "2", "3V3"), *high), _net("GND", (U, "1", "GND"), *low)] + base_nets()[2:5] + [
+        _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+        _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+    ]
+    return pinmap.build(write_board(tmp, nets, {U: "ESP32-WROVER-E-N8R8", "U2": value}), None)
+
+
+def test_a_single_adr_or_addr_strap_picks_one_of_two_addresses(tmp_path):
+    # ES9038Q2M has two addresses; ADR (one D) and ADDR are both one strap pin.
+    for name in ("ADR", "ADDR"):
+        for high, want in ((False, 72), (True, 73)):
+            pin = [("U2", "9", name)]
+            m = _strap_board(tmp_path / f"{name}{want}", "ES9038Q2M", pin if high else [], [] if high else pin)
+            assert "i2c_addr_unknown" not in {f["kind"] for f in m["findings"]}, (name, want)
+            assert f"i2c={want}" in m["squeezelite"]["config"]["dac_config"].split(","), (name, want)
+
+
+def test_a_strap_shared_with_another_function_still_counts(tmp_path):
+    # KiCad names a dual-use pin 'CAD0/CSN'; it is still the CAD0 strap.
+    m = _strap_board(tmp_path, "AK4493SEQ", [("U2", "23", "CAD0/CSN")], [("U2", "22", "CAD1")])
+    assert "i2c=17" in m["squeezelite"]["config"]["dac_config"].split(",")
+
+
+def test_a_bare_ad_pin_is_not_a_strap(tmp_path):
+    m = _strap_board(tmp_path, "ES9038Q2M", [("U2", "9", "AD")], [])
+    assert "i2c_addr_unknown" in {f["kind"] for f in m["findings"]}
+
+
 def test_output_on_input_only_pin_and_reserved_pin_are_findings(tmp_path):
     nets = base_nets() + [_net("/LED_RED", (U, "6b", "IO36")), _net("/BTN_PLAY", (U, "9", "IO16"))]
     nets[7] = _net("/LED_GREEN", (U, "6", "IO34"))
