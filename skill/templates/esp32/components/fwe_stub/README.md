@@ -4,7 +4,8 @@ Each feature is its own component beside this one, shaped like it: logic that ne
 ESP-IDF in `core/` (built and tested on the host by `tests/host/`), the ESP-IDF glue
 beside it, `-Werror` in its CMakeLists.txt. The planned ones, each a follow-up row:
 
-- `fwe_pd_limit`: the USB-PD power limiter, caps amplifier gain to the negotiated contract.
+- `fwe_pd_limit`: the USB-PD power limiter, caps amplifier gain to the negotiated contract
+  (its `core/` and host test are in; the CH224A I2C and rail ADC glue is not yet).
 - `fwe_xover`: the subwoofer crossover DSP.
 - `fwe_selftest`: power-on self-test of the codecs, amps and network.
 - `fwe_webapp`: the phone web app.
