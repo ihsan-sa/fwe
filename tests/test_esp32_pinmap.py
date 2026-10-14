@@ -114,6 +114,24 @@ def test_i2c_codec_gets_controlset_and_an_unverified_sequence_is_a_finding(tmp_p
     assert cfg["set_GPIO"] == "2=amp:1"
 
 
+def test_ak4493s_address_reads_both_straps_and_smute_mutes_high(tmp_path):
+    # i2c_addr is indexed by CAD1 CAD0; the old code read CAD0 alone, so CAD1 high gave 16 or 17.
+    for cad1, cad0, want in ((0, 0, 16), (0, 1, 17), (1, 0, 18), (1, 1, 19)):
+        straps = {"+3V3": [(U, "2", "3V3")], "GND": [(U, "1", "GND")]}
+        straps["+3V3" if cad1 else "GND"].append(("U2", "22", "CAD1"))
+        straps["+3V3" if cad0 else "GND"].append(("U2", "23", "CAD0"))
+        nets = [_net(rail, *nodes) for rail, nodes in straps.items()] + base_nets()[2:5] + [
+            _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+            _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+            _net("/audio/DAC_SOFTMUTE", (U, "14", "IO12"), ("U2", "6", "SMUTE")),
+        ]
+        ws = write_board(tmp_path / str(want), nets, {U: "ESP32-WROVER-E-N8R8", "U2": "AK4493SEQ"})
+        m = pinmap.build(ws, None)
+        assert "i2c_addr_unknown" not in {f["kind"] for f in m["findings"]}, want
+        f = m["squeezelite"]["config"]["dac_config"].split(",")
+        assert f"i2c={want}" in f and "mute=12:1" in f, (want, f)
+
+
 def test_output_on_input_only_pin_and_reserved_pin_are_findings(tmp_path):
     nets = base_nets() + [_net("/LED_RED", (U, "6b", "IO36")), _net("/BTN_PLAY", (U, "9", "IO16"))]
     nets[7] = _net("/LED_GREEN", (U, "6", "IO34"))
