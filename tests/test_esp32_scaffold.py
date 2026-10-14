@@ -140,6 +140,30 @@ def test_platform_comes_from_sdkconfig_fwe(tmp_path):
     assert esp32_build.platform(tmp_path, "Muse") == "Muse"
 
 
+def test_a_changed_platform_or_sdkconfig_fwe_drops_the_old_sdkconfig(tmp_path):
+    fw, b = tmp_path, tmp_path / "build"
+    b.mkdir()
+    sdk = b / "sdkconfig"
+
+    def built(key):                                     # as main() keeps it after a build
+        sdk.write_text("CONFIG_X=y\n")
+        (b / "fwe_build.json").write_text(json.dumps({"sdkconfig": {**key, "regenerated": False}}))
+
+    key = esp32_build.sdkconfig_key(fw, "I2S-4MFlash")
+    assert key["sdkconfig_fwe_sha256"] is None
+    assert not esp32_build.drop_stale_sdkconfig(b, key)  # nothing to drop yet
+    built(key)
+    assert not esp32_build.drop_stale_sdkconfig(b, key) and sdk.is_file()
+    assert esp32_build.drop_stale_sdkconfig(b, esp32_build.sdkconfig_key(fw, "Muse"))
+    assert not sdk.exists()
+    built(key)
+    (fw / "sdkconfig.fwe").write_text("CONFIG_Y=y\n")
+    assert esp32_build.drop_stale_sdkconfig(b, esp32_build.sdkconfig_key(fw, "I2S-4MFlash"))
+    sdk.write_text("CONFIG_X=y\n")
+    (b / "fwe_build.json").write_text("{}")             # a build from before the key was kept
+    assert esp32_build.drop_stale_sdkconfig(b, key)
+
+
 def test_build_refuses_an_upstream_off_the_pin(board):
     ws, pin, commits = board
     fw_scaffold.scaffold(ws)

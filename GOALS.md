@@ -25,7 +25,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
      "IDF missing" step.
 - **Done when:** every checkbox in #11 is ticked, each fix has a test where one fits, `make check` passes, and the pull
   request that closes #11 is merged.
-- **Pull requests:** the dispatch/13 branch does item 1 (C3/S3 parts are refused by pinmap, scaffold and manifest).
+- **Pull requests:** [#14](https://github.com/ihsan-sa/fwe/pull/14) did item 1 (C3/S3 parts are refused by pinmap,
+  scaffold and manifest); the dispatch/15 branch does item 2 (`fwe_build.json` keeps the platform and the
+  `sdkconfig.fwe` hash, and a change drops `build/sdkconfig`).
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 
