@@ -136,8 +136,11 @@ plan is `power`, `flash` (esptool over the ROM bootloader, with the manifest's
 `boot_strap` and each image's sha256), `boot` (the ROM's `rst:` line, then
 ESP-IDF's first `I (…)` log line, on upstream's console), then one
 `nvs:<namespace>.<key>` step per setting in `nvs.namespaces`, read back over
-upstream's console and compared verbatim with `expect`, then its test hooks
-as above. Any other schema is refused.
+upstream's console and compared verbatim with `expect`, then one `st:<name>`
+step per `selftest` command once that section is `ready` (none while it is
+false, and not `st tone`, whose taps the manifest doesn't name yet), its
+`expect` the section's `answer.ok`, then its test hooks as above. Any other
+schema is refused.
 
 ### The failure report and its triage
 

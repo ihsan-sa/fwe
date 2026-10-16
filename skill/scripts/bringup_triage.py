@@ -85,8 +85,10 @@ RULES = [
      "nothing on the console: the clock tree or the console UART's pins and baud"),
     ("hook:*", r"^ERR (\S+)", "firmware", "the console handler's `{1}` error for `{send}`"),
     ("cmd:*", r"^ERR (\S+)", "firmware", "the console handler's `{1}` error for `{send}`"),
+    ("st:*", r"^ERR (.+)", "firmware", "fwe_selftest's `{1}` answer to `{send}`"),
     ("hook:*", None, "firmware", "the console handler for `{send}` never answered"),
     ("cmd:*", None, "firmware", "the console handler for `{send}` never answered"),
+    ("st:*", None, "firmware", "fwe_selftest never answered `{send}`: its USB serial or TCP glue"),
     ("nvs:*", None, "firmware", "the key is missing: the nvs_config image's offset or the CSV row"),
 ]
 

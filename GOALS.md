@@ -69,7 +69,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   `st tone`'s tap, 20 to 20000 Hz and -60 to 0 dBFS, calls the board's handler and frames one `OK {json}` or
   `ERR <reason>` line) and its host test. The dispatch/57 branch adds the manifest's `selftest` section (the four
   commands, `st tone`'s ranges read from the component's header, the answer patterns, and `ready`, false while the
-  component is only `core/`) and documents it in `manifest.md`. Left in item 2: the handlers' JSON and the reason
+  component is only `core/`) and documents it in `manifest.md`. The dispatch/65 branch puts it in npie's ESP32
+  bring-up plan: an `st:rails`, `st:pd` and `st:net` step once the section is `ready` (not `st tone`, whose taps the
+  manifest doesn't name), and triage reads an `ERR <reason>` or no answer on one. Left in item 2: `st tone`'s taps in
+  the manifest and plan, the handlers' JSON and the reason
   words checked against npie#19's contract, and the handlers and USB serial/TCP glue.
 
 ### Add the hi-fi sub crossover DSP and phone web app
