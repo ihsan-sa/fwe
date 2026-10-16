@@ -74,7 +74,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   manifest doesn't name), and triage reads an `ERR <reason>` or no answer on one. The dispatch/67 branch names
   `st tone`'s taps: the PCM1863's mux inputs in `codecs.json` (unchecked, from memory), each one the netlist wires
   kept as `tone_taps` in `pinmap.json` with the named net it reads, and listed under `st tone` in the manifest.
-  Left in item 2: an `st:tone` step in the plan, the handlers' JSON and the reason
+  The dispatch/69 branch adds one `st:tone.<tap>` step per tap to the plan (a 1 kHz tone at -20 dBFS, clamped into
+  the command's ranges), its suspects naming the tap's mux setting and the net it reads back.
+  Left in item 2: the handlers' JSON and the reason
   words checked against npie#19's contract, and the handlers and USB serial/TCP glue.
 
 ### Add the hi-fi sub crossover DSP and phone web app

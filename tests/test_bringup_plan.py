@@ -178,6 +178,24 @@ def test_esp32_plan_runs_the_selftest_only_once_it_is_ready(tmp_path):
     assert "never answered `st pd`" in t["findings"][0]["suspect"]
 
 
+def test_esp32_plan_plays_st_tone_once_per_tap(tmp_path):
+    tone = {**SELFTEST["commands"][2], "taps": [{"tap": "VINL1", "net": "DAC_OUTL"},
+                                                {"tap": "VINR1", "net": "DAC_OUTR"}]}
+    cmds = SELFTEST["commands"][:2] + [tone] + SELFTEST["commands"][3:]
+    rc, res = _run(tmp_path, {**ESP32, "selftest": {**SELFTEST, "commands": cmds}})
+    assert rc == 0
+    steps = res["plan"]["steps"]
+    assert [s["id"] for s in steps][-5:] == ["st:rails", "st:pd", "st:tone.VINL1", "st:tone.VINR1", "st:net"]
+    left = steps[-3]
+    assert left["send"] == "st tone VINL1 1000 -20" and re.search(left["expect"], 'OK {"thd_pct":0.01}')
+    assert "DAC_OUTL" in left["fwe_suspects"][1]
+    report = {"schema": bringup_triage.REPORT, "board": "PCB-0029-A", "step": "st:tone.VINL1",
+              "lines": ["ERR no signal"], "current_a": 0.2}
+    t = bringup_triage.triage(res["plan"], report)
+    assert t["side"] == "firmware" and "no signal" in t["findings"][0]["suspect"]
+    assert any("DAC_OUTL" in f["suspect"] for f in t["findings"])
+
+
 @pytest.mark.parametrize("task,verb", [
     ("write the bring-up plan", "bringup"),
     ("plan the bringup", "bringup"),
