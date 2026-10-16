@@ -20,9 +20,9 @@
       "pins": {"enable": "PDN", "fault": "FAULT", "warn": "WARN"}, "unchecked": ["i2c_addr", "enable", "fault", "warn"]
     },
     "TPA3255": {
-      "kind": "amp", "bus": "analog", "model": null, "verified": true,
-      "source": "TPA3255 datasheet: the hi-fi Max board's amp, TPA3245's pinout. /RESET low holds the outputs off, /FAULT and /CLIP_OTW are open-drain active low. No I2C.",
-      "pins": {"enable": "RESET", "fault": "FAULT", "warn": "CLIP_OTW"}
+      "kind": "amp", "bus": "analog", "model": null, "verified": false,
+      "source": "TPA3255 datasheet (TI): the hi-fi Max board's amp. Taken to share the TPA3245's /RESET (low holds the outputs off) and open-drain active-low /FAULT and /CLIP_OTW, no I2C; written from the TPA3245's pinout without the TPA3255 datasheet, so the pins and levels are unchecked.",
+      "pins": {"enable": "RESET", "fault": "FAULT", "warn": "CLIP_OTW"}, "unchecked": ["enable", "fault", "warn"]
     },
     "TPA3245": {
       "kind": "amp", "bus": "analog", "model": null, "verified": true,

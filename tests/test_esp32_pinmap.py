@@ -133,6 +133,8 @@ def test_hifi_max_tpa3255_amp_and_es9018k2m_dac(tmp_path):
     assert m["squeezelite"]["fwe"]["amp_warn_gpio"] == "36:0"
     kinds = {f["kind"] for f in m["findings"]}
     assert {"codec_unverified", "codec_pins_unchecked"} <= kinds and "several_i2s_sinks" not in kinds
+    # The TPA3255's pins are taken from the TPA3245 and not checked, so the amp gets its own finding.
+    assert {f["ref"] for f in m["findings"] if f["kind"] == "codec_pins_unchecked"} == {"U2", "U4"}
 
 
 def test_hifi_lite_tas5825p_is_not_taken_for_the_tas5825m(tmp_path):
