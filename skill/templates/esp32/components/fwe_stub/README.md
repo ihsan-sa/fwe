@@ -5,7 +5,8 @@ ESP-IDF in `core/` (built and tested on the host by `tests/host/`), the ESP-IDF 
 beside it, `-Werror` in its CMakeLists.txt. The planned ones, each a follow-up row:
 
 - `fwe_pd_limit`: the USB-PD power limiter, caps amplifier gain to the negotiated contract
-  (its `core/` and host test are in; the CH224A I2C and rail ADC glue is not yet).
+  (its `core/`, which reads the CH224A through a register-read callback, and host test are in;
+  the I2C bus and rail ADC glue is not yet).
 - `fwe_xover`: the subwoofer crossover DSP.
 - `fwe_selftest`: the `npie-selftest/1` console (`st rails|pd|tone|net`) for bring-up (its `core/`,
   the line parsing and `OK {json}`/`ERR <reason>` framing, and host test are in; the handlers

@@ -34,6 +34,15 @@ typedef struct {
  * don't handle. */
 int fwe_pd_decode_ch224a(uint8_t status, uint8_t vsel, uint8_t imax, fwe_pd_contract_t *out);
 
+/* Read one CH224A register into *val; returns 0, or nonzero when the I2C read failed. The
+ * ESP-IDF glue supplies it (the bus, the address); the host tests fake it. */
+typedef int (*fwe_pd_reg_read_fn)(void *ctx, uint8_t reg, uint8_t *val);
+
+/* Read the status, VSEL and IMAX registers through read and decode them as
+ * fwe_pd_decode_ch224a does. A failed read returns -1 with plain 5 V in *out, so the
+ * amplifier stays off rather than trusting a contract it couldn't read. */
+int fwe_pd_read_ch224a(fwe_pd_reg_read_fn read, void *ctx, fwe_pd_contract_t *out);
+
 /* The rail current from one calibrated ADC reading, scaled by the RAIL_ISNS_REF_V and
  * RAIL_ISNS_V_PER_A that pinmap writes to board_pins.h: (adc_mv - ref) / V-per-A, rounded, 0
  * below the reference. A scale that isn't positive returns UINT32_MAX, so the limiter drops
