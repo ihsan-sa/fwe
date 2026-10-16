@@ -85,6 +85,25 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
   test. Left in item 2: the HTTP server, the page, NVS and the self-test route in the ESP-IDF glue.
 
+### Answer npie's bring-up failure reports
+
+- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
+- **Done when:** `python -m pytest -q tests/test_bringup_triage.py -k router` passes in `make check`
+- **Status:** open
+- **What:** the debug half of bring-up: npie stops at the first failed step of `firmware/bringup-plan.json` and
+  reports what `on_fail.report` asks for; fwe reads that and says which side the issue is on and where to look.
+  1. `skill/scripts/bringup_triage.py` reads npie's report (`fwe-bringup-report/1`: step id, console lines, supply
+     current) against the plan and writes `firmware/bringup-triage.json` (`fwe-bringup-triage/1`): findings the
+     console lines point at first (an ESP32 rst line in download mode, a panic backtrace, a brownout, an MCU's
+     watchdog reset cause, a hook's `ERR`, an NVS readback that differs), then the step's `fwe_suspects`, each one
+     `firmware`, `hardware` (a finding for hwde) or `bench`, plus the step npie resumes from.
+  2. A `triage` router verb for MCU and ESP32 boards with its recipe, the two schemas in `reference/manifest.md`,
+     and the bring-up recipes' "when /npie reports a failed step" line pointing at it; a router test on an STM32 and
+     an ESP32 fixture is the Done when.
+  3. Each triage and the fix that answered it kept in `firmware/bringup-log.json`, so a board's open bring-up issues
+     can be listed.
+- **Pull requests:** the dispatch/49 branch did item 1, with tests on fixture STM32 and ESP32 plans.
+
 ## Closed
 
 What has landed so far, from the git history:
