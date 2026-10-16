@@ -17,7 +17,9 @@ when it fails (`fwe_suspects`), so the two can find the firmware side of an
 issue without /fwe seeing the bench. An ESP32 manifest (fwe-esp32-manifest/1)
 has no fwe console, so its plan is power, flash over the ROM bootloader with
 its boot strap, boot (the ROM's reset line on upstream's console), one nvs:*
-step per setting read back against the manifest, then its test hooks if any.
+step per setting read back against the manifest, one st:* step per fwe_selftest
+command once its `selftest` section is `ready` (all but `st tone`, whose taps
+the manifest doesn't name), then its test hooks if any.
 
   bringup_plan.py --workspace PCB-0018-A_bldc-motor-driver
 
@@ -123,6 +125,23 @@ def _nvs(man: dict) -> list[dict]:
             for ns, keys in nvs["namespaces"].items() for key, value in keys.items()]
 
 
+# Where /fwe looks first when an `st` line fails, beyond the handler itself.
+ST_SUSPECTS = {"rails": "the rail ADC channels and scales in gen/board_pins.h",
+               "pd": "the CH224A's I2C address and register read in fwe_pd_limit's glue",
+               "net": "the network upstream brought up, before the TCP listener started"}
+
+
+def _selftest(man: dict) -> list[dict]:
+    st = man.get("selftest")
+    if not st or not st.get("ready"):
+        return []
+    return [{"id": f"st:{c['name']}", "kind": "unattended", "send": c["send"],
+             "expect": st["answer"]["ok"], "timeout_s": 5,
+             "fwe_suspects": [f"fwe_selftest's `{c['name']}` handler and the JSON it writes",
+                              ST_SUSPECTS.get(c["name"], "the board's ops in the selftest glue")]}
+            for c in st["commands"] if "args" not in c]
+
+
 def plan(man: dict) -> dict:
     if not isinstance(man, dict):
         raise Error(f"manifest is a JSON {type(man).__name__}, not an object")
@@ -132,7 +151,7 @@ def plan(man: dict) -> dict:
     try:
         board = man["board"]
         if schema == "fwe-esp32-manifest/1":
-            steps = [_power(man), _esp32_flash(man), _esp32_boot(man)] + _nvs(man)
+            steps = [_power(man), _esp32_flash(man), _esp32_boot(man)] + _nvs(man) + _selftest(man)
         else:
             steps = [_power(man), _flash(man), _boot(man)]
         steps += [_hook(h) for h in man.get("test_hooks", [])]

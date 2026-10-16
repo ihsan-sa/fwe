@@ -15,6 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 import bringup_plan  # noqa: E402
+import bringup_triage  # noqa: E402
 import task_router  # noqa: E402
 
 MANIFEST = {
@@ -147,6 +148,34 @@ def test_esp32_plan_takes_its_test_hooks_and_refuses_a_manifest_without_nvs(tmp_
     assert steps[-1]["id"] == "hook:pd" and steps[0]["rails"] == ["VBUS"]
     rc, res = _run(tmp_path / "b", {k: v for k, v in ESP32.items() if k != "nvs"})
     assert rc == 2 and "nvs" in res["error"]
+
+
+SELFTEST = {"protocol": "npie-selftest/1", "component": "fwe_selftest",
+            "commands": [{"name": "rails", "send": "st rails"}, {"name": "pd", "send": "st pd"},
+                         {"name": "tone", "send": "st tone <tap> <hz> <dBFS>",
+                          "args": {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000],
+                                   "dbfs": [-60.0, 0.0]}},
+                         {"name": "net", "send": "st net"}],
+            "answer": {"ok": "^OK \\{", "err": "^ERR "}, "ready": True}
+
+
+def test_esp32_plan_runs_the_selftest_only_once_it_is_ready(tmp_path):
+    rc, res = _run(tmp_path / "a", {**ESP32, "selftest": {**SELFTEST, "ready": False}})
+    assert rc == 0 and not any(s["id"].startswith("st:") for s in res["plan"]["steps"])
+    rc, res = _run(tmp_path / "b", {**ESP32, "selftest": SELFTEST})
+    assert rc == 0
+    steps = res["plan"]["steps"]
+    assert [s["id"] for s in steps][-3:] == ["st:rails", "st:pd", "st:net"]
+    pd = steps[-2]
+    assert pd["send"] == "st pd" and pd["kind"] == "unattended" and len(pd["fwe_suspects"]) == 2
+    assert re.search(pd["expect"], 'OK {"contract_v":20}')
+    assert not re.search(pd["expect"], "ERR no PD contract")
+    report = {"schema": bringup_triage.REPORT, "board": "PCB-0029-A", "step": "st:pd",
+              "lines": ["ERR no PD contract"], "current_a": 0.1}
+    t = bringup_triage.triage(res["plan"], report)
+    assert t["side"] == "firmware" and "no PD contract" in t["findings"][0]["suspect"]
+    t = bringup_triage.triage(res["plan"], {**report, "lines": []})
+    assert "never answered `st pd`" in t["findings"][0]["suspect"]
 
 
 @pytest.mark.parametrize("task,verb", [
