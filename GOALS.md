@@ -31,6 +31,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 
 ### Fix the review findings from #10
 
+- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
 - **Status:** open
 - **What:** the review of the ESP32 target ([#10](https://github.com/ihsan-sa/fwe/pull/10)) left eight follow-ups,
   listed in [issue #11](https://github.com/ihsan-sa/fwe/issues/11).
@@ -56,6 +57,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 
+- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
 - **Status:** open
 - **What:** the hi-fi streamer boards are ESP32 boards running squeezelite-esp32, the target #10 added. This goal adds
   two ESP-IDF components of our own under `skill/templates/esp32/components/`, shaped like the `fwe_stub` example there:
@@ -80,12 +82,15 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   hi-fi netlist, and the pull request is merged.
 - **Note:** this goal and the review fixes above both touch `squeezelite.py` and `codecs.json`, so do them one after the
   other.
-- **Pull requests:** the dispatch/24 branch starts item 1: `fwe_pd_limit`'s `core/` (CH224A register decode, the
-  28 V EPR, 20 V fallback and 5 V cases, the volume cap) and its host test. Left in item 1: the ESP-IDF glue (CH224A
-  I2C read, rail ADC, applying the cap).
+- **Pull requests:** [#25](https://github.com/ihsan-sa/fwe/pull/25) starts item 1: `fwe_pd_limit`'s `core/` (CH224A
+  register decode, the 28 V EPR, 20 V fallback and 5 V cases, the volume cap) and its host test. Left in item 1: the
+  ESP-IDF glue (CH224A I2C read, rail ADC, applying the cap). The dispatch/29 branch does item 3's table: TPA3255,
+  ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their addresses unchecked), with
+  pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
 
 ### Add the hi-fi sub crossover DSP and phone web app
 
+- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
 - **Status:** open
 - **What:** two more components of our own under `skill/templates/esp32/components/`, shaped like `fwe_stub`.
   1. `fwe_xover`, a sub crossover (an LR4 at about 80 Hz, for example) with per-sub level and delay, out on the second

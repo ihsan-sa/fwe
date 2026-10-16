@@ -12,6 +12,18 @@
       "source": "TAS5825M datasheet SLASEX7 register map (page 0, book 0): 0x03 DEVICE_CTRL_2 HiZ=2 Play=3, 0x01 RESET_CTRL, 0x33 SAP_CTRL1 24-bit, 0x4C DIG_VOL 0 dB. Written without the datasheet at hand; check before flashing.",
       "pins": {"enable": "PDN", "fault": "FAULT", "warn": "WARN"}
     },
+    "TAS5825P": {
+      "kind": "amp", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [76, 77, 78, 79],
+      "controls": {"init": [], "poweron": [], "poweroff": []},
+      "verified": false,
+      "source": "TAS5825P datasheet (TI): the hi-fi Lite board's candidate amp. Taken to share the TAS5825M's resistor-strapped ADR (0x4C-0x4F) and PDN, FAULT and WARN pins; written without the datasheet, so the addresses and pins are unchecked and the init sequence must come from it.",
+      "pins": {"enable": "PDN", "fault": "FAULT", "warn": "WARN"}, "unchecked": ["i2c_addr", "enable", "fault", "warn"]
+    },
+    "TPA3255": {
+      "kind": "amp", "bus": "analog", "model": null, "verified": true,
+      "source": "TPA3255 datasheet: the hi-fi Max board's amp, TPA3245's pinout. /RESET low holds the outputs off, /FAULT and /CLIP_OTW are open-drain active low. No I2C.",
+      "pins": {"enable": "RESET", "fault": "FAULT", "warn": "CLIP_OTW"}
+    },
     "TPA3245": {
       "kind": "amp", "bus": "analog", "model": null, "verified": true,
       "source": "TPA3245 datasheet: /RESET low holds the outputs off, /FAULT and /CLIP_OTW are open-drain active low. No I2C.",
@@ -23,6 +35,13 @@
       "verified": false,
       "source": "ES9038Q2M datasheet (ESS, under NDA for the full register map): the init sequence must come from it.",
       "pins": {"enable": "CHIP_EN", "mute": "MUTE"}
+    },
+    "ES9018K2M": {
+      "kind": "dac", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [72, 73],
+      "controls": {"init": [], "poweron": [], "poweroff": []},
+      "verified": false,
+      "source": "ES9018K2M datasheet (ESS): the hi-fi Max board's DAC. Chip address 0x48 or 0x49 by the ADDR pin, mute by register (no mute pin). Its RESETB is not given the amp role: squeezelite drops the amp GPIO when idle, which would reset the DAC and lose its registers. From memory, not the datasheet, so the address is unchecked and the init sequence must come from it.",
+      "pins": {}, "unchecked": ["i2c_addr"]
     },
     "AK4493S": {
       "kind": "dac", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [16, 17, 18, 19],
