@@ -103,10 +103,12 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 - **Fixtures:** as above, the tests use fixture netlists for the hi-fi boards.
 - **Done when:** `make check` passes, including host tests for the crossover coefficients and the API's request
   handling and a fixture build of both components, and the pull request is merged.
-- **Pull requests:** the dispatch/31 branch starts item 1: `fwe_xover`'s `core/` (LR4 low and high pass
+- **Pull requests:** [#32](https://github.com/ihsan-sa/fwe/pull/32) starts item 1: `fwe_xover`'s `core/` (LR4 low and high pass
   coefficients from 40 to 200 Hz, a per-sample filter step, each sub's level and delay) and its host test, which checks
   -6 dB at the crossover, -24.6 dB an octave out and a flat sum. Left in item 1: the second I2S port and the delay line
-  in the ESP-IDF glue.
+  in the ESP-IDF glue. The dispatch/33 branch starts item 2: `fwe_webapp`'s `core/` (the settings, GET and POST
+  `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
+  test. Left in item 2: the HTTP server, the page, NVS and the self-test route in the ESP-IDF glue.
 
 ## Closed
 
