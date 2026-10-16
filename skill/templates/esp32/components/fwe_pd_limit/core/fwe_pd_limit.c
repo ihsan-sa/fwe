@@ -26,6 +26,17 @@ int fwe_pd_decode_ch224a(uint8_t status, uint8_t vsel, uint8_t imax, fwe_pd_cont
     return 0;
 }
 
+int fwe_pd_read_ch224a(fwe_pd_reg_read_fn read, void *ctx, fwe_pd_contract_t *out)
+{
+    uint8_t status = 0, vsel = 0, imax = 0;
+    if (read(ctx, FWE_CH224A_REG_STATUS, &status) != 0 || read(ctx, FWE_CH224A_REG_VSEL, &vsel) != 0 ||
+        read(ctx, FWE_CH224A_REG_IMAX, &imax) != 0) {
+        fwe_pd_decode_ch224a(0, 0, 0, out); /* no status bits: plain 5 V USB */
+        return -1;
+    }
+    return fwe_pd_decode_ch224a(status, vsel, imax, out);
+}
+
 uint32_t fwe_pd_rail_ma(int32_t adc_mv, float ref_v, float v_per_a)
 {
     if (!(v_per_a > 0.0f)) {

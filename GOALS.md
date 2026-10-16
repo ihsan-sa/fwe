@@ -62,7 +62,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   the ESP32 pinmap finds the amp rail's current sense, refuses an ADC2 pin (`isns_not_adc1`), reads its amp and
   shunt, and writes `RAIL_ISNS_ADC1_CH`, `_REF_V` and `_V_PER_A` to `board_pins.h` (#60). The dispatch/61 branch adds
   `fwe_pd_rail_ma()` to `core/`, which turns a calibrated ADC reading into rail mA with those two scales (a scale that
-  isn't positive reads as over any contract, so the cap falls to its floor). [#30](https://github.com/ihsan-sa/fwe/pull/30) did
+  isn't positive reads as over any contract, so the cap falls to its floor). The dispatch/71 branch adds
+  `fwe_pd_read_ch224a()` to `core/`: it reads the status, VSEL and IMAX registers through a register-read callback
+  the glue supplies and decodes them, and a failed read gives plain 5 V, so the amplifier stays off. Left in item 1's
+  glue: that callback on the I2C bus, the rail ADC read and applying the cap. [#30](https://github.com/ihsan-sa/fwe/pull/30) did
   item 3's table: TPA3255, ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their
   addresses unchecked), with pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
   [#56](https://github.com/ihsan-sa/fwe/pull/56) starts item 2: `fwe_selftest`'s `core/` (reads one `st rails|pd|tone|net` line, checks

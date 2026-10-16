@@ -23,6 +23,42 @@ static void test_decode(void)
     assert(c.mv == 5000);
 }
 
+typedef struct {
+    uint8_t regs[256];
+    int fail_reg; /* the register whose read fails, or -1 */
+} fake_bus_t;
+
+static int fake_read(void *ctx, uint8_t reg, uint8_t *val)
+{
+    fake_bus_t *bus = ctx;
+    if (bus->fail_reg == reg) {
+        return -1;
+    }
+    *val = bus->regs[reg];
+    return 0;
+}
+
+static void test_read_ch224a(void)
+{
+    fake_bus_t bus = {{0}, -1};
+    bus.regs[FWE_CH224A_REG_STATUS] = 0x18;
+    bus.regs[FWE_CH224A_REG_VSEL] = 5;
+    bus.regs[FWE_CH224A_REG_IMAX] = 100;
+    fwe_pd_contract_t c;
+    assert(fwe_pd_read_ch224a(fake_read, &bus, &c) == 0);
+    assert(c.mv == 28000 && c.ma == 5000 && c.epr);
+    /* any of the three reads failing: plain 5 V, so the amplifier stays off */
+    for (int i = 0; i < 3; i++) {
+        static const uint8_t regs[] = {FWE_CH224A_REG_STATUS, FWE_CH224A_REG_VSEL, FWE_CH224A_REG_IMAX};
+        bus.fail_reg = regs[i];
+        assert(fwe_pd_read_ch224a(fake_read, &bus, &c) == -1);
+        assert(c.mv == 5000 && c.ma == 500 && !c.epr);
+        fwe_pd_limit_t st;
+        fwe_pd_limit_init(&st, &c);
+        assert(!st.amp_on);
+    }
+}
+
 static void test_rail_ma(void)
 {
     /* an INA180A2-style sense: 0 V reference, 0.25 V per A */
@@ -92,6 +128,7 @@ static void test_limits_on_the_20v_fallback(void)
 int main(void)
 {
     test_decode();
+    test_read_ch224a();
     test_rail_ma();
     test_plain_usb_keeps_the_amp_off();
     test_limits_on_a_28v_contract();
