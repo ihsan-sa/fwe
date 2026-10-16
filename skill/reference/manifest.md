@@ -129,8 +129,15 @@ test hook (unattended), then one `cmd:<name>` per `safe: false` command, each
 sent only after a human confirms it (`kind: confirm`, with `safety` as
 `limits`). /npie stops at the first step that fails and reports the step id,
 the console lines it saw and the supply current (`on_fail.report`); each step's
-`fwe_suspects` is where /fwe looks first for the firmware side of it. Only
-`fwe-manifest/1` is planned so far; an ESP32 manifest is refused.
+`fwe_suspects` is where /fwe looks first for the firmware side of it.
+
+An ESP32 manifest (`fwe-esp32-manifest/1`, below) has no fwe console, so its
+plan is `power`, `flash` (esptool over the ROM bootloader, with the manifest's
+`boot_strap` and each image's sha256), `boot` (the ROM's `rst:` line, then
+ESP-IDF's first `I (…)` log line, on upstream's console), then one
+`nvs:<namespace>.<key>` step per setting in `nvs.namespaces`, read back over
+upstream's console and compared verbatim with `expect`, then its test hooks
+as above. Any other schema is refused.
 
 ## Versioning
 

@@ -6,6 +6,7 @@ plan is checked without a board, a toolchain or a build.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -68,8 +69,8 @@ def test_plan_orders_power_flash_boot_hooks_then_confirmed_commands(tmp_path):
 def test_plan_needs_a_manifest_and_refuses_one_it_cannot_plan(tmp_path):
     rc, res = _run(tmp_path / "a", None)
     assert rc == 1 and "fw_manifest.py" in res["error"]
-    rc, res = _run(tmp_path / "b", {**MANIFEST, "schema": "fwe-esp32-manifest/1"})
-    assert rc == 2 and "fwe-esp32-manifest/1" in res["error"]
+    rc, res = _run(tmp_path / "b", {**MANIFEST, "schema": "fwe-manifest/9"})
+    assert rc == 2 and "fwe-manifest/9" in res["error"]
     rc, res = _run(tmp_path / "c", {k: v for k, v in MANIFEST.items() if k != "uart"})
     assert rc == 2 and "uart" in res["error"]
     rc, res = _run(tmp_path / "d", {k: v for k, v in MANIFEST.items() if k != "board"})
@@ -92,3 +93,54 @@ def test_plan_without_safety_or_test_hooks(tmp_path):
     steps = res["plan"]["steps"]
     assert [s["id"] for s in steps] == ["power", "flash", "boot", "cmd:arm", "cmd:duty"]
     assert steps[0]["rails"] == []
+
+
+ESP32 = {
+    "schema": "fwe-esp32-manifest/1", "board": "PCB-0029-A",
+    "mcu": {"part": "ESP32-WROVER-E-N8R8", "core": "xtensa-lx6", "chip": "esp32",
+            "flash_mb": 8, "psram_mb": 8},
+    "firmware": {"base": "squeezelite-esp32", "esp_idf": "v4.4.8", "platform": "I2S-4MFlash"},
+    "images": [{"name": "bootloader", "offset": "0x1000", "file": "build/bootloader/bootloader.bin",
+                "sha256": "b1"},
+               {"name": "nvs_config", "offset": "0x9000", "file": "build/nvs_config.bin",
+                "sha256": "n1"}],
+    "flash": {"interface": "uart-rom-bootloader", "tx_gpio": 1, "rx_gpio": 3, "baud": 460800,
+              "boot_strap": "GPIO0 low at reset",
+              "command": ["esptool.py", "--chip", "esp32", "write_flash", "0x1000", "build/b.bin"]},
+    "console": {"tx_gpio": 1, "rx_gpio": 3, "baud": 115200, "format": "8N1", "levels": "3V3",
+                "commands": "upstream squeezelite-esp32's own console"},
+    "nvs": {"csv": "gen/nvs_config.csv", "partition": "settings",
+            "namespaces": {"config": {"dac_config": "model=I2S,bck=33,ws=26,do=25",
+                                      "dac_controlset": "{}"},
+                           "fwe": {}}},
+    "commands": [], "test_hooks": [],
+    "verified": {"build": True, "host_tests": False, "hardware": False},
+}
+
+
+def test_esp32_plan_flashes_over_the_rom_then_reads_back_nvs(tmp_path):
+    rc, res = _run(tmp_path, ESP32)
+    assert rc == 0 and res["ok"]
+    plan = res["plan"]
+    assert plan["board"] == "PCB-0029-A" and plan["verified"]["host_tests"] is False
+    assert [s["id"] for s in plan["steps"]] == [
+        "power", "flash", "boot", "nvs:config.dac_config", "nvs:config.dac_controlset"]
+    power, flash, boot, dac = plan["steps"][:4]
+    assert power["kind"] == "human" and power["rails"] == []
+    assert flash["boot_strap"] == "GPIO0 low at reset" and flash["command"][0] == "esptool.py"
+    assert flash["sha256"] == {"bootloader": "b1", "nvs_config": "n1"}
+    assert boot["uart"]["baud"] == 115200
+    assert re.search(boot["expect"][0], "rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)")
+    assert re.search(boot["expect"][1], "I (29) boot: ESP-IDF v4.4.8 2nd stage bootloader")
+    assert dac["namespace"] == "config" and dac["expect"] == "model=I2S,bck=33,ws=26,do=25"
+    assert all(s["kind"] in ("human", "unattended") and s["fwe_suspects"] for s in plan["steps"])
+
+
+def test_esp32_plan_takes_its_test_hooks_and_refuses_a_manifest_without_nvs(tmp_path):
+    hook = {"name": "pd", "send": "st pd", "expect": "^OK ", "timeout_s": 5, "needs": ["VBUS"]}
+    rc, res = _run(tmp_path / "a", {**ESP32, "test_hooks": [hook]})
+    assert rc == 0
+    steps = res["plan"]["steps"]
+    assert steps[-1]["id"] == "hook:pd" and steps[0]["rails"] == ["VBUS"]
+    rc, res = _run(tmp_path / "b", {k: v for k, v in ESP32.items() if k != "nvs"})
+    assert rc == 2 and "nvs" in res["error"]
