@@ -10,9 +10,12 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 import bringup_plan  # noqa: E402
+import task_router  # noqa: E402
 
 MANIFEST = {
     "schema": "fwe-manifest/1", "board": "PCB-0018-A",
@@ -144,3 +147,24 @@ def test_esp32_plan_takes_its_test_hooks_and_refuses_a_manifest_without_nvs(tmp_
     assert steps[-1]["id"] == "hook:pd" and steps[0]["rails"] == ["VBUS"]
     rc, res = _run(tmp_path / "b", {k: v for k, v in ESP32.items() if k != "nvs"})
     assert rc == 2 and "nvs" in res["error"]
+
+
+@pytest.mark.parametrize("task,verb", [
+    ("write the bring-up plan", "bringup"),
+    ("plan the bringup", "bringup"),
+    ("write the esp32 bring-up plan", "esp32-bringup"),
+    ("plan bring-up for the squeezelite board", "esp32-bringup"),
+])
+def test_router_picks_the_bringup_verb(task, verb):
+    assert task_router.match(task) == [verb]
+
+
+@pytest.mark.parametrize("verb,manifest", [
+    ("bringup", "fw_manifest.py"), ("esp32-bringup", "esp32_manifest.py"), ("full-run", "fw_manifest.py")])
+def test_router_writes_the_manifest_then_the_plan(tmp_path, verb, manifest):
+    rc = task_router.main(["--verb", verb, "--workspace", str(tmp_path), "--out", str(tmp_path / "o.json")])
+    res = json.loads((tmp_path / "o.json").read_text())
+    assert rc == 0 and Path(res["doc"]).is_file()
+    cmds = [s["cmd"].split()[1] for s in res["steps"] if s["kind"] == "script"]
+    assert Path(cmds[-1]).name == "bringup_plan.py" and Path(cmds[-2]).name == manifest
+    assert res["steps"][-1]["cmd"].endswith(f"bringup_plan.py --workspace {tmp_path}")

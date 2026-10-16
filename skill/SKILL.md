@@ -27,7 +27,7 @@ bare name also finds a numbered workspace `<PN>_<name>`.
   ask which board.
 - **exit 2**: error; the payload says what.
 
-Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `stage` `review` `full-run`.
+Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `bringup` `stage` `review` `full-run`.
 
 FPGA verbs: `fpga-setup` `fpga-scaffold` `fpga-build` `fpga-sim`
 `fpga-manifest` `fpga-review`. A task that names an FPGA (fpga, gateware,
@@ -38,7 +38,7 @@ the UART register protocol and the /npie manifest. Its sim and synthesis run
 on chip-flow's `bin/eda`, and the bench reuses /vde's cocotblib.
 
 ESP32 verbs: `esp32-setup` `esp32-pinmap` `esp32-scaffold` `esp32-build`
-`esp32-test` `esp32-manifest`. A task that names the ESP32 (esp32, esp-idf,
+`esp32-test` `esp32-manifest` `esp32-bringup`. A task that names the ESP32 (esp32, esp-idf,
 idf.py, squeezelite, wrover) routes only to these. The firmware is upstream
 squeezelite-esp32 at the commit the lock's `upstreams` pins, cloned into
 `firmware/upstream/` (never forked, never given a remote of ours), built with

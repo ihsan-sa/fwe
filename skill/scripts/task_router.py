@@ -71,6 +71,11 @@ VERBS = {
         "summary": "write or check firmware/fwe-manifest.json, the interface /npie flashes and drives",
         "steps": ["fw_manifest.py --workspace {ws}"],
     },
+    "bringup": {
+        "match": [r"\bbring.?up plan\b", r"\bplan (the |a )?bring.?up\b"],
+        "summary": "write firmware/fwe-manifest.json, then firmware/bringup-plan.json, the steps /npie carries out",
+        "steps": ["fw_manifest.py --workspace {ws}", "bringup_plan.py --workspace {ws}"],
+    },
     "stage": {
         "match": [r"\b(stage|six.?step|foc|commutat\w*|bring.?up firmware|add (a )?command)\b"],
         "summary": "write or extend a firmware stage (bringup, motor), then build + test",
@@ -165,13 +170,21 @@ VERBS = {
         "summary": "write or check firmware/fwe-manifest.json (fwe-esp32-manifest/1) for /npie",
         "steps": ["esp32_manifest.py --workspace {ws} [--check]"],
     },
+    "esp32-bringup": {
+        "target": "esp32",
+        "match": [r"\bbring.?up plan\b", r"\bplan (the |a )?bring.?up\b"],
+        "summary": "write firmware/fwe-manifest.json (fwe-esp32-manifest/1), then firmware/bringup-plan.json "
+                   "for /npie",
+        "steps": ["esp32_manifest.py --workspace {ws}", "bringup_plan.py --workspace {ws}"],
+    },
     "full-run": {
         "match": [r"\b(full.?run|end to end|from scratch|firmware for)\b", r"^run (on|for)\b"],
-        "summary": "the whole path for a board: setup, scaffold, build, host tests",
+        "summary": "the whole path for a board: setup, scaffold, build, host tests, sim, manifest, bring-up plan",
         "steps": ["fwe_setup.py", "fw_scaffold.py --workspace {ws}",
                   "agent: fill the bringup stage per recipes/stage.md",
                   "fw_build.py --workspace {ws}", "fw_test.py --workspace {ws}",
-                  "fw_sim.py --workspace {ws}", "fw_manifest.py --workspace {ws} --sim renode"],
+                  "fw_sim.py --workspace {ws}", "fw_manifest.py --workspace {ws} --sim renode",
+                  "bringup_plan.py --workspace {ws}"],
     },
 }
 
