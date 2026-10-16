@@ -85,7 +85,72 @@ def test_stm32_cli_writes_the_advice_and_exits_1_on_a_must(tmp_path, capsys):
     assert json.loads((ws / "firmware" / "mcu-advice.json").read_text()) == out
 
 
-def test_stm32_esp32_board_is_refused_for_now(tmp_path, capsys):
-    ws = write_board(tmp_path, [_net("GND", ("U1", "1", "GND"))], {"U1": "ESP32-WROVER-E"})
+# ESP32-WROVER-E pin numbers, functions as KiCad names them (as test_esp32_pinmap does).
+EN, IO0, IO2, IO12, IO15 = ("U1", "3", "EN"), ("U1", "25", "IO0"), ("U1", "24", "IO2"), \
+    ("U1", "14", "IO12"), ("U1", "23", "IO15")
+TXD0, RXD0 = ("U1", "35", "TXD0"), ("U1", "34", "RXD0")
+
+
+def esp_board(tmp: Path, *, en_cap=True, en=True, tx="/UART_TX", extra=(), comps=None, v33=(), gnd=()) -> Path:
+    """A clean board unless told otherwise: EN 10k up and 1 uF down, GPIO0 10k up with a BOOT button, UART0 on J1."""
+    cs = {"U1": "ESP32-WROVER-E-N8R8", "J1": "Conn_UART", "R1": "10k", "R2": "10k", "C1": "1uF",
+          "SW1": "SW_Push", **(comps or {})}
+    nets = [
+        _net("+3V3", ("U1", "2", "3V3"), ("R1", "1", "1"), ("R2", "1", "1"), ("J1", "1", "1"), *v33),
+        _net("GND", ("U1", "1", "GND"), ("SW1", "2", "2"), ("J1", "3", "3"),
+             *([("C1", "2", "2")] if en_cap else []), *gnd),
+        _net("/EN", *([EN] if en else []), ("R1", "2", "2"), *([("C1", "1", "1")] if en_cap else [])),
+        _net("/BOOT", IO0, ("R2", "2", "2"), ("SW1", "1", "1")),
+        _net(tx, TXD0, *([("J1", "4", "4")] if tx == "/UART_TX" else [])),
+        _net("/UART_RX", RXD0, ("J1", "5", "5")),
+        *extra,
+    ]
+    return write_board(tmp, nets, cs)
+
+
+def test_esp32_clean_board_has_no_advice(tmp_path):
+    res = mcu_advice.advise(esp_board(tmp_path), None)
+    assert res["mcu"] == {"ref": "U1", "part": "ESP32-WROVER-E-N8R8", "table": "esp32"}
+    assert res["advice"] == [] and res["ok"]
+
+
+def test_esp32_mtdi_pulled_up_by_a_part_is_a_must(tmp_path):
+    ws = esp_board(tmp_path, extra=[_net("/I2C_SDA", IO12, ("R3", "1", "1"))], comps={"R3": "4k7"},
+                   v33=[("R3", "2", "2")])
+    res = mcu_advice.advise(ws, None)
+    assert topics(res, "must") == [("boot", "GPIO12")] and not res["ok"]
+    assert "R3" in res["advice"][0]["says"] and "1.8 V" in res["advice"][0]["why"]
+
+
+def test_esp32_gpio2_high_is_a_must_and_mtdo_low_a_should(tmp_path):
+    ws = esp_board(tmp_path, extra=[_net("/LED_STATUS", IO2, ("R3", "1", "1")),
+                                    _net("/DAC_MUTE", IO15, ("R4", "1", "1"))],
+                   comps={"R3": "10k", "R4": "10k"}, v33=[("R3", "2", "2")], gnd=[("R4", "2", "2")])
+    res = mcu_advice.advise(ws, None)
+    assert topics(res, "must") == [("boot", "GPIO2")]
+    assert topics(res, "should") == [("boot", "GPIO15")]
+
+
+def test_esp32_gpio0_with_no_button_and_en_without_its_cap_are_shoulds(tmp_path):
+    ws = write_board(tmp_path, [
+        _net("+3V3", ("U1", "2", "3V3"), ("R1", "1", "1"), ("J1", "1", "1")),
+        _net("/EN", EN, ("R1", "2", "2")),
+        _net("unconnected-(U1-IO0-Pad25)", IO0),
+        _net("/UART_TX", TXD0, ("R5", "1", "1")), _net("/TX_J", ("R5", "2", "2"), ("J1", "4", "4")),
+        _net("/UART_RX", RXD0, ("U3", "5", "TXD"))],
+        {"U1": "ESP32-WROVER-E", "J1": "Conn_UART", "R1": "10k", "R5": "470", "U3": "CP2102N"})
+    res = mcu_advice.advise(ws, None)
+    assert topics(res) == [("boot", "GPIO0"), ("reset", "EN")] and res["ok"]   # UART0 reaches J1 and U3
+
+
+def test_esp32_en_floating_or_uart0_taken_is_a_must(tmp_path):
+    ws = esp_board(tmp_path, en=False, tx="/I2S_MCLK", extra=[_net("unconnected-(U1-EN-Pad3)", EN)])
+    res = mcu_advice.advise(ws, None)
+    assert topics(res, "must") == [("reset", "EN"), ("uart", "GPIO1")]
+    assert "I2S_MCLK" in res["advice"][-1]["says"]
+
+
+def test_esp32_s3_is_refused(tmp_path, capsys):
+    ws = write_board(tmp_path, [_net("GND", ("U1", "1", "GND"))], {"U1": "ESP32-S3-WROOM-1"})
     assert mcu_advice.main(["--workspace", str(ws)]) == 2
-    assert "ESP32" in json.loads(capsys.readouterr().out)["error"]
+    assert "ESP32-S3" in json.loads(capsys.readouterr().out)["error"]

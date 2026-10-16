@@ -100,7 +100,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 - **Done when:** `python -m pytest -q tests/test_mcu_advice.py -k router` passes in `make check` (item 3's test, which
   needs items 1 and 2).
 - **Status:** open
-- **Pull requests:** the dispatch/43 branch did item 1, with `tests/test_mcu_advice.py` on fixture G431 netlists.
+- **Pull requests:** [#44](https://github.com/ihsan-sa/fwe/pull/44) did item 1, with `tests/test_mcu_advice.py` on
+  fixture G431 netlists. The dispatch/45 branch did item 2: GPIO0/2/12/15 held the wrong way at reset, GPIO0 with no
+  button or auto-reset, EN's pull-up and 1 uF, UART0 taken or not reaching a header or bridge, on fixture WROVER-E
+  netlists; an ESP32-C3/S3 is refused. Left: item 3.
 
 ## Closed
 

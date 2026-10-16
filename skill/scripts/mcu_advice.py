@@ -10,7 +10,12 @@ sharing its pin). Each problem is one advice item hwde can act on while the
 board is still being drawn; nothing is guessed, and a pin the table does not
 name is not checked.
 
-STM32 boards only for now; an ESP32 board is refused (exit 2).
+On a classic ESP32 module board it checks what the ROM flash and the boot
+need instead (the ESP32 datasheet's strapping table, Espressif's hardware
+design guidelines): GPIO0 not held low and reachable for download mode,
+GPIO2 not held high, GPIO12 (MTDI) not held high, GPIO15 (MTDO) not held low,
+EN pulled up with its RC delay, and UART0 (GPIO1, GPIO3) reaching a header or
+a USB-UART bridge. An ESP32-C3/S3 is refused (exit 2), as in pinmap.py.
 
 Writes <workspace>/firmware/mcu-advice.json (schema fwe-mcu-advice/1):
 {"schema", "board", "workspace", "netlist", "netlist_sha256", "mcu",
@@ -29,12 +34,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pinmap  # noqa: E402
-from fwelib import fwenv  # noqa: E402
+from fwelib import fwenv, squeezelite  # noqa: E402
 from fwelib.netlist import NetlistError, parse_netlist  # noqa: E402
 from pinmap import Error, Netlist, short  # noqa: E402
 
 SCHEMA = "fwe-mcu-advice/1"
 _HEADER = re.compile(r"^(J|P|CN|TP|X)\d")
+# What a flashing host reaches a pin through: a header, a USB-UART bridge, a button, an auto-reset transistor.
+_REACH = re.compile(r"^(J|P|CN|TP|X|U|SW|Q)\d")
 
 
 def _unconnected(net: str | None) -> bool:
@@ -120,6 +127,110 @@ def boot_advice(nl: Netlist, pin: str, net: str | None) -> list[dict]:
     return []
 
 
+def _reaches(nl: Netlist, net: str, mcu: str) -> bool:
+    """A header, bridge, button or transistor on the net, directly or through one series resistor."""
+    for ref, pin in nl.refs_on(net):
+        if ref == mcu:
+            continue
+        if _REACH.match(ref):
+            return True
+        if ref.startswith("R") and not ref.startswith("RN"):
+            o = nl.other_net(ref, pin)
+            if o and nl.volts(o) is None and any(_REACH.match(r) for r, _ in nl.refs_on(o) if r != mcu):
+                return True
+    return False
+
+
+def _held(nl: Netlist, net: str | None) -> tuple[str | None, list[str]]:
+    """How the board holds a pin at reset: "high" or "low" (by a rail or resistors to one), "both", or None."""
+    if _unconnected(net):
+        return None, []
+    v = nl.volts(net)
+    if v is not None:
+        return ("high" if v > 0 else "low"), [short(net)]
+    rs = _to_rails(nl, net, "R")
+    ups, downs = [r for r, v in rs if v > 0], [r for r, v in rs if v == 0]
+    if ups and downs:
+        return "both", ups + downs
+    return ("high", ups) if ups else ("low", downs) if downs else (None, [])
+
+
+# gpio -> (strap name, the level that breaks it, the severity, why), from the ESP32 datasheet's strapping table.
+ESP32_STRAPS = {
+    0: ("GPIO0", "low", "must", "GPIO0 low at reset starts the ROM's download mode, never the firmware"),
+    2: ("GPIO2", "high", "must", "the ROM enters download mode only with GPIO2 low or floating, "
+                                 "so the ROM flash fails"),
+    12: ("GPIO12 (MTDI)", "high", "must", "MTDI high at reset sets the flash supply to 1.8 V; a module's 3.3 V "
+                                          "flash (WROOM-32, WROVER-E) then fails to boot"),
+    15: ("GPIO15 (MTDO)", "low", "should", "MTDO low at reset silences the ROM's boot log on UART0, the rst line "
+                                           "npie's boot step reads"),
+}
+
+
+def esp32_strap_advice(nl: Netlist, mcu: str, io: dict) -> list[dict]:
+    out = []
+    for gpio, (name, bad, sev, why) in ESP32_STRAPS.items():
+        pin, net = f"GPIO{gpio}", io.get(gpio)
+        level, by = _held(nl, net)
+        if level == bad:
+            out.append(_item("boot", sev, pin, net, f"{name} is held {bad} by {', '.join(by)}; take it off "
+                             f"{short(net)} or hold it {'high' if bad == 'low' else 'low'}", why))
+        elif level == "both":
+            out.append(_item("boot", "should", pin, net, f"{name} is pulled both ways ({', '.join(by)})",
+                             "a divider leaves the boot mode to resistor tolerances"))
+    net = io.get(0)
+    if _unconnected(net) or not _reaches(nl, net, mcu):
+        out.append(_item("boot", "should", "GPIO0", net,
+                         "give GPIO0 a BOOT button to GND or the UART header's auto-reset",
+                         "the ROM flash needs GPIO0 low while EN rises; nothing on the board can pull it"))
+    return out
+
+
+def esp32_en_advice(nl: Netlist, pin: str, net: str | None) -> list[dict]:
+    level, _ = _held(nl, net)
+    if level not in ("high", "both"):
+        return [_item("reset", "must", pin, net, "pull EN to 3V3 through 10k, with 1 uF to GND",
+                      "EN is the chip's enable; floating or low, the ESP32 stays off or resets at random")]
+    if nl.volts(net) is not None:
+        return [_item("reset", "should", pin, net, f"put 10k between EN and {short(net)}, with 1 uF to GND",
+                      "tied to the rail, EN has no RC delay and no host or button can reset the chip")]
+    if not any(v == 0 for _, v in _to_rails(nl, net, "C")):
+        return [_item("reset", "should", pin, net, "add 1 uF from EN to GND",
+                      "Espressif's hardware design guidelines ask for the RC delay so EN rises after 3V3 settles")]
+    return []
+
+
+def esp32_uart_advice(nl: Netlist, mcu: str, io: dict) -> list[dict]:
+    out = []
+    for gpio, sig in ((1, "U0TXD"), (3, "U0RXD")):
+        pin, net = f"GPIO{gpio}", io.get(gpio)
+        role = None if _unconnected(net) else squeezelite.classify(net)[0]
+        if _unconnected(net):
+            out.append(_item("uart", "must", pin, net, f"bring {pin} ({sig}) to a UART header or USB-UART bridge",
+                             "UART0 is the ROM bootloader's only port; without it the board can't be flashed"))
+        elif role not in (None, "uart"):
+            out.append(_item("uart", "must", pin, net, f"give {pin} to {sig} and move {short(net)} to another pin",
+                             "UART0 is the ROM bootloader's port and the boot log's; firmware driving it "
+                             "as anything else breaks both"))
+        elif not _reaches(nl, net, mcu):
+            out.append(_item("uart", "should", pin, net, f"bring {short(net)} to a UART header or USB-UART bridge",
+                             "the ROM flash and npie's boot step both use UART0"))
+    return out
+
+
+def advise_esp32(nl: Netlist, mcu: str) -> tuple[str, list[dict]]:
+    io, en = {}, None
+    for num, net in nl.pins[mcu].items():
+        func = nl.func[(mcu, num)]
+        g = squeezelite.gpio_of(func)
+        if g is not None:
+            io[g] = net
+        elif re.sub(r"_\d+$", "", func).upper() in ("EN", "CHIP_PU"):
+            en = net
+    advice = esp32_strap_advice(nl, mcu, io) + esp32_en_advice(nl, "EN", en) + esp32_uart_advice(nl, mcu, io)
+    return "esp32", advice
+
+
 def advise(ws: Path, mcu_ref: str | None) -> dict:
     nets = sorted((ws / "kicad").glob("*.net"))
     if len(nets) != 1:
@@ -129,7 +240,10 @@ def advise(ws: Path, mcu_ref: str | None) -> dict:
     mcu = pinmap.find_mcu(nl, mcu_ref)
     part = nl.comps[mcu]["value"]
     if part.upper().startswith("ESP32"):
-        raise Error(f"{part}: ESP32 advice (boot straps) is not written yet; STM32 boards only")
+        if squeezelite.later_series(part):
+            raise Error(f"{part} is an {squeezelite.later_series(part)}; only the classic ESP32's straps are known")
+        fam, advice = advise_esp32(nl, mcu)
+        return _result(ws, netfile, mcu, part, fam, advice)
     fam, table = pinmap.load_mcu_table(part)
     io, reset, boot = {}, None, None
     for num, net in nl.pins[mcu].items():
@@ -146,6 +260,10 @@ def advise(ws: Path, mcu_ref: str | None) -> dict:
         advice += reset_advice(nl, mcu, *reset)
     if boot:
         advice += boot_advice(nl, *boot)
+    return _result(ws, netfile, mcu, part, fam, advice)
+
+
+def _result(ws: Path, netfile: Path, mcu: str, part: str, fam: str, advice: list[dict]) -> dict:
     return {"schema": SCHEMA, "board": ws.name.split("_", 1)[0], "workspace": ws.name,
             "netlist": f"kicad/{netfile.name}",
             "netlist_sha256": hashlib.sha256(netfile.read_bytes()).hexdigest(),
