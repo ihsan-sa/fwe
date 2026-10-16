@@ -7,6 +7,7 @@ the network, ESP-IDF or the hifi boards.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -275,6 +276,22 @@ def test_manifest_check_says_stale_until_written(board):
     assert esp32_manifest.main([*args, "--check"]) == 1
     assert esp32_manifest.main(args) == 0
     assert esp32_manifest.main([*args, "--check"]) == 0
+
+
+def test_manifest_selftest_follows_the_component_header(board):
+    ws, _, _ = board
+    fw = ws / "firmware"
+    fw_scaffold.scaffold(ws, fetch=False)
+    fake_build(fw)
+    st = esp32_manifest.derive(fw)[0]["selftest"]
+    assert [c["send"].split()[1] for c in st["commands"]] == ["rails", "pd", "tone", "net"]
+    assert st["commands"][2]["args"] == {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000],
+                                         "dbfs": [-60.0, 0.0]}
+    assert st["ready"] is False                          # core/ only, no glue yet
+    (fw / "components" / "fwe_selftest" / "fwe_selftest_idf.c").write_text("\n")
+    assert esp32_manifest.derive(fw)[0]["selftest"]["ready"] is True
+    shutil.rmtree(fw / "components" / "fwe_selftest")       # the scaffold's copy, not the template
+    assert "selftest" not in esp32_manifest.derive(fw)[0]
 
 
 def test_module_sizes_from_the_ordering_code():

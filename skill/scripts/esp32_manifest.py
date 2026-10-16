@@ -51,6 +51,35 @@ def module(part: str) -> dict:
             "psram_mb": int(m.group(2)) if m and m.group(2) else 0 if m else None}
 
 
+def selftest(fw: Path) -> dict | None:
+    """The fwe_selftest console's commands, `st tone`'s ranges as its header defines them.
+
+    `ready` is whether the component has more than core/ (the handlers and the
+    USB serial/TCP glue); /npie runs no `st` line while it is false.
+    """
+    comp = fw / "components" / "fwe_selftest"
+    try:
+        h = (comp / "include" / "fwe_selftest.h").read_text()
+    except OSError:
+        return None
+    d = {k: float(v) for k, v in re.findall(r"#define FWE_ST_(\w+) \(?(-?[\d.]+)\)?", h)}
+    return {
+        "protocol": "npie-selftest/1", "component": "fwe_selftest",
+        "commands": [
+            {"name": "rails", "send": "st rails"},
+            {"name": "pd", "send": "st pd"},
+            {"name": "tone", "send": "st tone <tap> <hz> <dBFS>",
+             "args": {"tap": f"^[A-Za-z0-9_]{{1,{int(d['TAP_MAX'])}}}$",
+                      "hz": [int(d["TONE_MIN_HZ"]), int(d["TONE_MAX_HZ"])],
+                      "dbfs": [d["TONE_MIN_DBFS"], 0.0]}},
+            {"name": "net", "send": "st net"},
+        ],
+        "answer": {"ok": r"^OK \{", "err": "^ERR "},
+        "ready": any(p.suffix == ".c" and "core" not in p.relative_to(comp).parts
+                     for p in comp.rglob("*.c")),
+    }
+
+
 def derive(fw: Path) -> tuple[dict | None, str | None]:
     pm = _json(fw / "pinmap.json")
     if not pm:
@@ -94,6 +123,7 @@ def derive(fw: Path) -> tuple[dict | None, str | None]:
                 "namespaces": pm.get("squeezelite", {})},
         "commands": [],
         "test_hooks": [],
+        **({"selftest": st} if (st := selftest(fw)) else {}),
         "verified": {"build": build_ok, "host_tests": ht_ok, "hardware": False},
     }
     return man, None
