@@ -248,3 +248,29 @@ int fwe_webapp_handle(fwe_settings_t *s, const char *method, const char *path, c
     }
     return fwe_settings_json(s, out, out_len) < 0 ? 500 : 200;
 }
+
+int fwe_webapp_selftest(const fwe_selftest_ops_t *ops, const char *method, const char *body,
+                        size_t body_len, char *out, size_t out_len)
+{
+    char line[FWE_WEBAPP_ST_MAX + 1];
+    if (out_len < 32) {
+        return 500;
+    }
+    if (strcmp(method, "POST") != 0) {
+        return answer_error(out, out_len, 405, "method not allowed");
+    }
+    if (body_len > FWE_WEBAPP_ST_MAX) {
+        return answer_error(out, out_len, 400, "body too long");
+    }
+    if (body_len && memchr(body, '\0', body_len)) {
+        return answer_error(out, out_len, 400, "not an st command");
+    }
+    if (body_len) {
+        memcpy(line, body, body_len);
+    }
+    line[body_len] = '\0';
+    if (fwe_selftest_line(ops, line, out, out_len) == 0) {
+        return answer_error(out, out_len, 400, "not an st command");
+    }
+    return 200;
+}
