@@ -64,7 +64,7 @@ def test_scaffold_clones_pinned_commit_and_links_components(board):
     up = fw / "upstream"
     assert res["template"] == "esp32"
     assert res["upstream"]["commit"] == pin["commit"]   # the pin, not the repo's tip
-    assert res["linked"] == ["fwe_board", "fwe_pd_limit", "fwe_stub", "fwe_webapp", "fwe_xover"]
+    assert res["linked"] == ["fwe_board", "fwe_pd_limit", "fwe_selftest", "fwe_stub", "fwe_webapp", "fwe_xover"]
     assert (up / "components" / "fwe_stub").resolve() == (fw / "components" / "fwe_stub").resolve()
     assert (up / "components" / "fwe_stub" / "core" / "fwe_stub.c").is_file()
     assert git(up, "status", "--porcelain") == ""        # the links never show in upstream
@@ -101,7 +101,7 @@ def test_host_tests_pass_on_the_template(board):
     fw_scaffold.scaffold(ws, fetch=False)
     rc, res = esp32_test.run(ws / "firmware")
     assert rc == 0, [t["output"] for t in res["tests"] if not t["ok"]]
-    assert [t["name"] for t in res["tests"]] == ["test_fwe_pd_limit", "test_fwe_stub", "test_fwe_webapp", "test_fwe_xover"]
+    assert [t["name"] for t in res["tests"]] == ["test_fwe_pd_limit", "test_fwe_selftest", "test_fwe_stub", "test_fwe_webapp", "test_fwe_xover"]
 
 
 def test_host_tests_fail_on_a_wrong_result_and_on_a_warning(board):

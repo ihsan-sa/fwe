@@ -61,6 +61,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   ESP-IDF glue (CH224A I2C read, rail ADC, applying the cap). [#30](https://github.com/ihsan-sa/fwe/pull/30) did
   item 3's table: TPA3255, ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their
   addresses unchecked), with pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
+  The dispatch/55 branch starts item 2: `fwe_selftest`'s `core/` (reads one `st rails|pd|tone|net` line, checks
+  `st tone`'s tap, 20 to 20000 Hz and -60 to 0 dBFS, calls the board's handler and frames one `OK {json}` or
+  `ERR <reason>` line) and its host test. Left in item 2: the handlers' JSON and the reason words checked against
+  npie#19's contract, the handlers and USB serial/TCP glue, and the manifest's `selftest` section.
 
 ### Add the hi-fi sub crossover DSP and phone web app
 
