@@ -1,6 +1,7 @@
 #include "fwe_xover.h"
 
 #include <math.h>
+#include <string.h>
 
 #define BUTTERWORTH_Q 0.70710678f
 #define PI_F 3.14159265f
@@ -49,4 +50,26 @@ int fwe_xover_sub(int32_t level_mb, uint32_t delay_us, uint32_t fs_hz, fwe_xover
     out->gain = powf(10.0f, (float)level_mb / 2000.0f);
     out->delay_samples = (uint32_t)(((uint64_t)delay_us * fs_hz + 500000u) / 1000000u);
     return 0;
+}
+
+int fwe_delay_init(fwe_delay_t *d, uint32_t samples)
+{
+    if (samples > FWE_XOVER_DELAY_CAP) {
+        return -1;
+    }
+    memset(d->buf, 0, sizeof d->buf);
+    d->len = samples;
+    d->pos = 0;
+    return 0;
+}
+
+float fwe_delay_step(fwe_delay_t *d, float x)
+{
+    if (d->len == 0) {
+        return x;
+    }
+    float y = d->buf[d->pos];
+    d->buf[d->pos] = x;
+    d->pos = d->pos + 1 == d->len ? 0 : d->pos + 1;
+    return y;
 }

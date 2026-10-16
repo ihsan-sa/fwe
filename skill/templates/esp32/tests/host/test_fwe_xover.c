@@ -96,12 +96,44 @@ static void test_sub_level_and_delay(void)
     assert(s.delay_samples == 7);
 }
 
+static void test_delay_line(void)
+{
+    static fwe_delay_t d;   /* static: the line is 7.5 KiB */
+    fwe_xover_sub_t s;
+    /* 2.5 ms at 48 kHz: an impulse comes out 120 samples later, once */
+    assert(fwe_xover_sub(0, 2500, 48000, &s) == 0 && fwe_delay_init(&d, s.delay_samples) == 0);
+    for (int n = 0; n < 500; n++) {
+        float y = fwe_delay_step(&d, n == 3 ? 1.0f : 0.0f);
+        assert(y == (n == 123 ? 1.0f : 0.0f));
+    }
+    /* a ramp over many wraps comes out intact */
+    for (int n = 0; n < 1000; n++) {
+        float y = fwe_delay_step(&d, (float)n);
+        assert(y == (n < 120 ? 0.0f : (float)(n - 120)));
+    }
+    /* a new delay starts on silence, not on the old line */
+    assert(fwe_delay_init(&d, 1) == 0);
+    assert(fwe_delay_step(&d, 5.0f) == 0.0f && fwe_delay_step(&d, 6.0f) == 5.0f);
+    /* no delay passes the sample straight through */
+    assert(fwe_delay_init(&d, 0) == 0 && fwe_delay_step(&d, 0.25f) == 0.25f);
+    /* 20 ms fits at 96 kHz, not at 192 kHz; a refusal leaves the line alone */
+    assert(fwe_xover_sub(0, 20000, 96000, &s) == 0 && fwe_delay_init(&d, s.delay_samples) == 0);
+    assert(d.len == FWE_XOVER_DELAY_CAP);
+    assert(fwe_xover_sub(0, 20000, 192000, &s) == 0 && fwe_delay_init(&d, s.delay_samples) == -1);
+    assert(d.len == FWE_XOVER_DELAY_CAP);
+    for (uint32_t n = 0; n < 2 * FWE_XOVER_DELAY_CAP; n++) {
+        float y = fwe_delay_step(&d, (float)n);
+        assert(y == (n < FWE_XOVER_DELAY_CAP ? 0.0f : (float)(n - FWE_XOVER_DELAY_CAP)));
+    }
+}
+
 int main(void)
 {
     test_lr4_at_80hz();
     test_lr4_filters_samples();
     test_lr4_refuses_out_of_range();
     test_sub_level_and_delay();
+    test_delay_line();
     printf("fwe_xover: all tests passed\n");
     return 0;
 }
