@@ -26,6 +26,21 @@ int fwe_pd_decode_ch224a(uint8_t status, uint8_t vsel, uint8_t imax, fwe_pd_cont
     return 0;
 }
 
+uint32_t fwe_pd_rail_ma(int32_t adc_mv, float ref_v, float v_per_a)
+{
+    if (!(v_per_a > 0.0f)) {
+        return UINT32_MAX;
+    }
+    float ma = ((float)adc_mv - ref_v * 1000.0f) / v_per_a;
+    if (!(ma > 0.0f)) {
+        return 0;
+    }
+    if (ma >= 4294967040.0f) { /* the largest float under 2^32 */
+        return UINT32_MAX;
+    }
+    return (uint32_t)(ma + 0.5f);
+}
+
 void fwe_pd_limit_init(fwe_pd_limit_t *st, const fwe_pd_contract_t *contract)
 {
     st->contract = *contract;

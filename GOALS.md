@@ -60,7 +60,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   register decode, the 28 V EPR, 20 V fallback and 5 V cases, the volume cap) and its host test. Left in item 1: the
   ESP-IDF glue (CH224A I2C read, rail ADC, applying the cap). The dispatch/59 branch maps the rail ADC for that glue:
   the ESP32 pinmap finds the amp rail's current sense, refuses an ADC2 pin (`isns_not_adc1`), reads its amp and
-  shunt, and writes `RAIL_ISNS_ADC1_CH`, `_REF_V` and `_V_PER_A` to `board_pins.h`. [#30](https://github.com/ihsan-sa/fwe/pull/30) did
+  shunt, and writes `RAIL_ISNS_ADC1_CH`, `_REF_V` and `_V_PER_A` to `board_pins.h` (#60). The dispatch/61 branch adds
+  `fwe_pd_rail_ma()` to `core/`, which turns a calibrated ADC reading into rail mA with those two scales (a scale that
+  isn't positive reads as over any contract, so the cap falls to its floor). [#30](https://github.com/ihsan-sa/fwe/pull/30) did
   item 3's table: TPA3255, ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their
   addresses unchecked), with pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
   [#56](https://github.com/ihsan-sa/fwe/pull/56) starts item 2: `fwe_selftest`'s `core/` (reads one `st rails|pd|tone|net` line, checks

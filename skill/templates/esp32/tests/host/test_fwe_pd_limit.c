@@ -23,6 +23,27 @@ static void test_decode(void)
     assert(c.mv == 5000);
 }
 
+static void test_rail_ma(void)
+{
+    /* an INA180A2-style sense: 0 V reference, 0.25 V per A */
+    assert(fwe_pd_rail_ma(1000, 0.0f, 0.25f) == 4000);
+    assert(fwe_pd_rail_ma(0, 0.0f, 0.25f) == 0);
+    /* a 1.65 V mid-rail reference: under it reads as no current */
+    assert(fwe_pd_rail_ma(1900, 1.65f, 0.5f) == 500);
+    assert(fwe_pd_rail_ma(1500, 1.65f, 0.5f) == 0);
+    assert(fwe_pd_rail_ma(-5, 0.0f, 0.25f) == 0);
+    /* rounded to the nearest mA */
+    assert(fwe_pd_rail_ma(1, 0.0f, 0.3f) == 3);
+    assert(fwe_pd_rail_ma(2, 0.0f, 0.3f) == 7);
+    /* no usable scale: read as over any contract, so the cap goes to the floor */
+    assert(fwe_pd_rail_ma(1000, 0.0f, 0.0f) == UINT32_MAX);
+    assert(fwe_pd_rail_ma(1000, 0.0f, -0.25f) == UINT32_MAX);
+    fwe_pd_contract_t c = {20000, 3000, false};
+    fwe_pd_limit_t st;
+    fwe_pd_limit_init(&st, &c);
+    assert(fwe_pd_limit_step(&st, fwe_pd_rail_ma(1000, 0.0f, 0.0f)) == FWE_PD_CAP_FLOOR_MB);
+}
+
 static void test_plain_usb_keeps_the_amp_off(void)
 {
     fwe_pd_contract_t c = {5000, 3000, false};
@@ -71,6 +92,7 @@ static void test_limits_on_the_20v_fallback(void)
 int main(void)
 {
     test_decode();
+    test_rail_ma();
     test_plain_usb_keeps_the_amp_off();
     test_limits_on_a_28v_contract();
     test_limits_on_the_20v_fallback();
