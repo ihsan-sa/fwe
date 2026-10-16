@@ -22,9 +22,18 @@ starts again from once the fix lands.
 --report defaults to firmware/bringup-report.json, where /npie's report is
 saved, so the router's `triage` verb needs only the workspace.
 
-JSON to stdout (or --out): {"ok", "path", "triage"}. Exit 0 written, 1 no plan
-(run bringup_plan.py first), 2 error (a report this can't read, or a step the
-plan doesn't have).
+Each triage is also kept as an issue in firmware/bringup-log.json (schema
+fwe-bringup-log/1), numbered from 1, with `fix` null until the fix that
+answered it is recorded. The same triage again (the same report re-read) is
+not logged twice.
+
+  bringup_triage.py --workspace <board> --fix 2 "console UART on PA9/PA10, 0.1.1"
+  bringup_triage.py --workspace <board> --open
+
+JSON to stdout (or --out): {"ok", "path", "triage", "issue"}, or with --fix
+{"ok", "path", "issue"}, or with --open {"ok", "path", "open"}. Exit 0
+written, 1 no plan (run bringup_plan.py first), 2 error (a report this can't
+read, a step the plan doesn't have, or an issue the log doesn't have).
 """
 from __future__ import annotations
 
@@ -42,6 +51,8 @@ SCHEMA = "fwe-bringup-triage/1"
 REPORT = "fwe-bringup-report/1"
 NAME = "bringup-triage.json"
 REPORT_NAME = "bringup-report.json"
+LOG = "fwe-bringup-log/1"
+LOG_NAME = "bringup-log.json"
 PLAN = "bringup-plan.json"
 HWDE = "finding for hwde"
 
@@ -142,26 +153,75 @@ def triage(plan: dict, rep: dict) -> dict:
             "current_a": rep.get("current_a"), "findings": found, "rerun_from": step["id"]}
 
 
+def _read_log(path: Path, board: str | None) -> dict:
+    if not path.is_file():
+        return {"schema": LOG, "board": board, "issues": []}
+    log = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(log, dict) or log.get("schema") != LOG or not isinstance(log.get("issues"), list):
+        raise Error(f"{path} is not a {LOG} log")
+    return log
+
+
+def log_triage(log: dict, t: dict) -> dict:
+    """Add the triage `t` to `log` as an open issue; the same one already logged is returned as is."""
+    first = t["findings"][0]
+    issue = {"step": t["step"], "version": t["version"], "side": t["side"],
+             "suspect": first["suspect"], "evidence": first["evidence"], "current_a": t["current_a"]}
+    for old in log["issues"]:
+        if all(old.get(k) == v for k, v in issue.items()):
+            return old
+    issue = {"n": len(log["issues"]) + 1, **issue, "fix": None}
+    log["issues"].append(issue)
+    return issue
+
+
+def fix_issue(log: dict, n: int, text: str) -> dict:
+    for issue in log["issues"]:
+        if issue.get("n") == n:
+            issue["fix"] = text
+            return issue
+    raise Error(f"the log has no issue {n}: {', '.join(str(i.get('n')) for i in log['issues']) or 'none yet'}")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--workspace", required=True, help="board workspace (path, or name under boards root)")
     ap.add_argument("--report", help=f"/npie's report (fwe-bringup-report/1); default firmware/{REPORT_NAME}")
     ap.add_argument("--out", help="write the JSON result here instead of stdout")
+    ap.add_argument("--fix", nargs=2, metavar=("N", "TEXT"), help=f"record the fix that answered issue N in {LOG_NAME}")
+    ap.add_argument("--open", action="store_true", help=f"list the issues in {LOG_NAME} with no fix yet")
     a = ap.parse_args(argv)
     fw = fwenv.workspace(a.workspace) / "firmware"
     src = fw / PLAN
     if not src.is_file():
         fwenv.emit({"ok": False, "error": f"no {src}: run bringup_plan.py first"}, a.out)
         return 1
+    log_path = fw / LOG_NAME
     try:
-        t = triage(json.loads(src.read_text(encoding="utf-8")),
-                   json.loads(Path(a.report or fw / REPORT_NAME).read_text(encoding="utf-8")))
+        plan = json.loads(src.read_text(encoding="utf-8"))
+        log = _read_log(log_path, plan.get("board"))
+        if a.open:
+            fwenv.emit({"ok": True, "path": str(log_path),
+                        "open": [i for i in log["issues"] if i.get("fix") is None]}, a.out)
+            return 0
+        if a.fix:
+            if not a.fix[0].isdigit():
+                raise Error(f"--fix takes an issue number, not {a.fix[0]!r}")
+            issue = fix_issue(log, int(a.fix[0]), a.fix[1])
+            t = None
+        else:
+            t = triage(plan, json.loads(Path(a.report or fw / REPORT_NAME).read_text(encoding="utf-8")))
+            issue = log_triage(log, t)
     except (Error, ValueError, OSError, KeyError) as e:
         fwenv.emit({"ok": False, "error": str(e)}, a.out)
         return 2
+    log_path.write_text(json.dumps(log, indent=2) + "\n", encoding="utf-8")
+    if t is None:
+        fwenv.emit({"ok": True, "path": str(log_path), "issue": issue}, a.out)
+        return 0
     path = fw / NAME
     path.write_text(json.dumps(t, indent=2) + "\n", encoding="utf-8")
-    fwenv.emit({"ok": True, "path": str(path), "triage": t}, a.out)
+    fwenv.emit({"ok": True, "path": str(path), "triage": t, "issue": issue}, a.out)
     return 0
 
 

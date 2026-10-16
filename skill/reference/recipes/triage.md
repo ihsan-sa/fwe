@@ -16,3 +16,7 @@ triage"). It serves STM32 and ESP32 boards.
 - exit 2 -> a report this can't read (another schema or board, or a step the
   plan doesn't have); ask /npie for the report again.
 - A triage names where to look, not the cause; confirm it before a fix.
+- Each triage is an issue in `firmware/bringup-log.json` (its `n` is in the
+  output). Once a fix answers it, record it with
+  `bringup_triage.py --workspace <board> --fix <n> "<what changed, version>"`;
+  `--open` lists the board's bring-up issues still open.

@@ -108,6 +108,30 @@ def test_triage_needs_a_plan_and_refuses_a_report_it_cannot_read(tmp_path):
     assert rc == 2 and "list of strings" in res["error"]
 
 
+def test_each_triage_is_logged_until_its_fix_is_recorded(tmp_path):
+    rc, res = _run(tmp_path, MANIFEST, "boot", ['EVT {"boot":{"reset_cause":"iwdg"}}'])
+    ws, fw = str(tmp_path / "ws"), tmp_path / "ws" / "firmware"
+    assert rc == 0 and res["issue"]["n"] == 1 and res["issue"]["fix"] is None
+    assert res["issue"]["side"] == "firmware" and "watchdog" in res["issue"]["suspect"]
+    out = tmp_path / "o.json"
+    assert bringup_triage.main(["--workspace", ws, "--report", str(tmp_path / "rep.json"), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["issue"]["n"] == 1
+    (tmp_path / "rep.json").write_text(json.dumps({"schema": "fwe-bringup-report/1", "board": MANIFEST["board"],
+                                                   "step": "hook:adc", "lines": ["ERR busy"], "current_a": 0.05}))
+    assert bringup_triage.main(["--workspace", ws, "--report", str(tmp_path / "rep.json"), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["issue"]["n"] == 2
+    assert bringup_triage.main(["--workspace", ws, "--fix", "1", "feed the IWDG before the ADC calibration",
+                                "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["issue"]["fix"] == "feed the IWDG before the ADC calibration"
+    assert bringup_triage.main(["--workspace", ws, "--open", "--out", str(out)]) == 0
+    assert [i["n"] for i in json.loads(out.read_text())["open"]] == [2]
+    log = json.loads((fw / "bringup-log.json").read_text())
+    assert log["schema"] == "fwe-bringup-log/1" and log["board"] == MANIFEST["board"] and len(log["issues"]) == 2
+    assert bringup_triage.main(["--workspace", ws, "--fix", "7", "x", "--out", str(out)]) == 2
+    assert "no issue 7" in json.loads(out.read_text())["error"]
+    assert json.loads((fw / "bringup-log.json").read_text()) == log
+
+
 @pytest.mark.parametrize("task", ["triage the failed boot step", "triage the esp32 bring-up report"])
 def test_router_picks_triage_for_mcu_and_esp32_tasks(task):
     assert task_router.match(task) == ["triage"]
