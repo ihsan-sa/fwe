@@ -29,31 +29,24 @@ them and works toward them, and proposes the next step under Proposed goals belo
 Each goal says what to build, which files it touches and how to tell it is done. At most three are open at once, and
 each keeps its status (open, done, failed or dropped) and the pull requests that moved it.
 
-### Fix the review findings from #10
+### Write npie's bring-up plan from the manifest
 
 - **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
+- **What:** the standing goal asks fwe to "make plans for NPIE to carry out the bringup". The manifest says how to
+  flash and drive the firmware, but not in what order to bring a board up, what to send back when a step fails, or
+  where fwe looks then. `skill/scripts/bringup_plan.py` derives `firmware/bringup-plan.json` (`fwe-bringup-plan/1`,
+  documented in `skill/reference/manifest.md`) from the manifest.
+  1. MCU boards (`fwe-manifest/1`): power, flash, boot, each test hook, then each `safe: false` command behind a
+     human's confirmation; each step with what npie reports and fwe's first suspects.
+  2. ESP32 boards (`fwe-esp32-manifest/1`): power, the ROM-bootloader flash with its boot strap, upstream's console,
+     the NVS settings read back against `nvs.namespaces`, and `fwe_selftest`'s commands once that exists.
+  3. A `bringup` verb in `skill/scripts/task_router.py` (with its recipe) that runs the manifest then the plan, so
+     `/fwe` writes a plan whenever it hands a board to npie.
+- **Done when:** `python -m pytest -q tests/test_bringup_plan.py -k "esp32 or router"` passes (it fails while no such
+  test exists), as part of `make check`, and the pull request is merged.
 - **Status:** open
-- **What:** the review of the ESP32 target ([#10](https://github.com/ihsan-sa/fwe/pull/10)) left eight follow-ups,
-  listed in [issue #11](https://github.com/ihsan-sa/fwe/issues/11).
-  1. ESP32-C3 and ESP32-S3 parts take the classic ESP32 path. Detection in `skill/scripts/pinmap.py` and
-     `skill/scripts/fw_scaffold.py` should accept only classic ESP32 modules, and a C3 or S3 should get a clear error
-     instead of classic pin tables and an xtensa manifest from `skill/scripts/esp32_manifest.py`.
-  2. A later `--platform` or `sdkconfig.fwe` change is silently ignored by `skill/scripts/esp32_build.py`. Store the
-     platform and a hash of `sdkconfig.fwe` in `fwe_build.json`, and drop `build/sdkconfig` when either changes.
-  3. Six smaller ones: the AK4493S address strap and mute polarity in `skill/scripts/fwelib/squeezelite.py`, an ESP-IDF
-     re-clone in `skill/scripts/fwe_setup.py` on hosts without uv, an uncaught build timeout in `esp32_build.py`, a
-     wording fix in `skill/reference/recipes/esp32-build.md`, and offline tests for the flash-args parsing and the
-     "IDF missing" step.
-- **Done when:** every checkbox in #11 is ticked, each fix has a test where one fits, `make check` passes, and the pull
-  request that closes #11 is merged.
-- **Pull requests:** [#14](https://github.com/ihsan-sa/fwe/pull/14) did item 1 (C3/S3 parts are refused by pinmap,
-  scaffold and manifest); [#16](https://github.com/ihsan-sa/fwe/pull/16) did item 2 (`fwe_build.json` keeps the
-  platform and the `sdkconfig.fwe` hash, and a change drops `build/sdkconfig`); [#18](https://github.com/ihsan-sa/fwe/pull/18)
-  did three of item 3's six (a build timeout is a failed `build` step, not a traceback; offline tests for the
-  flash-args parsing and the "IDF missing" step); [#21](https://github.com/ihsan-sa/fwe/pull/21) did two more (setup
-  checks uv before cloning ESP-IDF and keeps a clone already at the pinned commit; the esp32-build recipe's exit codes
-  match the script); [#23](https://github.com/ihsan-sa/fwe/pull/23) did the last (the AK4493S address reads both CAD1 and CAD0, and its
-  SMUTE pin mutes high). Left: ticking #11's boxes and closing it, which a run cannot do from here.
+- **Pull requests:** the dispatch/37 branch does item 1 (`bringup_plan.py` for `fwe-manifest/1`, tested on a fixture
+  manifest).
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 
@@ -105,7 +98,7 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   handling and a fixture build of both components, and the pull request is merged.
 - **Pull requests:** [#32](https://github.com/ihsan-sa/fwe/pull/32) starts item 1: `fwe_xover`'s `core/` (LR4 low and high pass
   coefficients from 40 to 200 Hz, a per-sample filter step, each sub's level and delay) and its host test, which checks
-  -6 dB at the crossover, -24.6 dB an octave out and a flat sum. The dispatch/35 branch adds each sub's delay line to
+  -6 dB at the crossover, -24.6 dB an octave out and a flat sum. [#36](https://github.com/ihsan-sa/fwe/pull/36) added each sub's delay line to
   `core/` (a fixed ring buffer, 20 ms at up to 96 kHz, cleared when the delay changes). Left in item 1: the second I2S
   port in the ESP-IDF glue. [#34](https://github.com/ihsan-sa/fwe/pull/34) starts item 2: `fwe_webapp`'s `core/` (the settings, GET and POST
   `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
@@ -125,3 +118,8 @@ What has landed so far, from the git history:
 - A `swo` role in the pin map for the SWO trace pin (#8).
 - A required check job and a `make check` target (#9).
 - An ESP32 (ESP-IDF) target for squeezelite-esp32 boards (#10).
+- Fix the review findings from #10. All eight follow-ups in
+  [issue #11](https://github.com/ihsan-sa/fwe/issues/11) landed with tests: C3/S3 parts refused (#14), the platform
+  and `sdkconfig.fwe` hash kept in `fwe_build.json` (#16), build timeouts, flash-args and "IDF missing" tests (#18),
+  uv checked before cloning ESP-IDF and the recipe's exit wording (#21), the AK4493S straps and SMUTE (#23). Its Done
+  when (#11's boxes ticked and #11 closed) is the owner's to meet; no run's pull request closes #11.
