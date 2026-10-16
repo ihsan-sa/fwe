@@ -12,4 +12,5 @@ human's confirmation.
   console's `fwe-cmd` lines, `config/fw_config.h`); never hand-edit the plan.
 - exit 1 `no ... fwe-manifest.json` -> the manifest step failed; fix that first.
 - exit 2 -> a manifest this can't plan (another schema, or a key missing).
-- When /npie reports a failed step, start from that step's `fwe_suspects`.
+- When /npie reports a failed step, save its report as `firmware/bringup-report.json`
+  and run the `triage` verb (`recipes/triage.md`).

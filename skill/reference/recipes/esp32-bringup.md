@@ -10,4 +10,5 @@ setting read back against the manifest, then its test hooks if any.
   what they found; the plan copies it for /npie.
 - The plan is derived from the manifest; never hand-edit it.
 - exit 1 `no ... fwe-manifest.json` -> the manifest step failed; fix that first.
-- When /npie reports a failed step, start from that step's `fwe_suspects`.
+- When /npie reports a failed step, save its report as `firmware/bringup-report.json`
+  and run the `triage` verb (`recipes/triage.md`).

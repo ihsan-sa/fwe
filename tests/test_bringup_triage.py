@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bringup_plan  # noqa: E402
 import bringup_triage  # noqa: E402
+import pytest  # noqa: E402
+import task_router  # noqa: E402
 from test_bringup_plan import ESP32, MANIFEST  # noqa: E402
 
 
@@ -104,3 +106,28 @@ def test_triage_needs_a_plan_and_refuses_a_report_it_cannot_read(tmp_path):
     assert rc == 2 and "PCB-0099-A" in res["error"]
     rc, res = _run(tmp_path / "e", MANIFEST, "boot", "fwe PCB-0018-A")
     assert rc == 2 and "list of strings" in res["error"]
+
+
+@pytest.mark.parametrize("task", ["triage the failed boot step", "triage the esp32 bring-up report"])
+def test_router_picks_triage_for_mcu_and_esp32_tasks(task):
+    assert task_router.match(task) == ["triage"]
+
+
+@pytest.mark.parametrize("man,step,lines,side", [
+    (MANIFEST, "boot", ['EVT {"boot":{"reset_cause":"wwdg"}}'], "firmware"),
+    (ESP32, "boot", ["rst:0x1 (POWERON_RESET),boot:0x3 (DOWNLOAD_BOOT(UART0/UART1/SDIO_REI_REO_V2))"], "hardware")])
+def test_router_runs_the_triage_on_an_stm32_and_an_esp32(tmp_path, man, step, lines, side):
+    fw = tmp_path / "ws" / "firmware"
+    fw.mkdir(parents=True)
+    (fw / "bringup-plan.json").write_text(json.dumps(bringup_plan.plan(man)))
+    (fw / "bringup-report.json").write_text(json.dumps(
+        {"schema": "fwe-bringup-report/1", "board": man["board"], "step": step, "lines": lines, "current_a": 0.05}))
+    out = tmp_path / "o.json"
+    assert task_router.main(["--verb", "triage", "--workspace", str(fw.parent), "--out", str(out)]) == 0
+    res = json.loads(out.read_text())
+    assert Path(res["doc"]).is_file() and [s["kind"] for s in res["steps"]] == ["script"]
+    script, *args = res["steps"][0]["cmd"].split()[1:]
+    assert Path(script).name == "bringup_triage.py"
+    assert bringup_triage.main(args) == 0
+    t = json.loads((fw / "bringup-triage.json").read_text())
+    assert t["step"] == step and t["side"] == side and t["findings"][0]["evidence"] == lines[0]

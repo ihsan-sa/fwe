@@ -27,8 +27,9 @@ bare name also finds a numbered workspace `<PN>_<name>`.
   ask which board.
 - **exit 2**: error; the payload says what.
 
-Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `bringup` `advise` `stage` `review` `full-run`.
-`advise` also serves ESP32 boards: it is hwde's MCU advice, read before layout.
+Verbs: `setup` `pinmap` `scaffold` `build` `test` `sim` `manifest` `bringup` `advise` `triage` `stage` `review` `full-run`.
+`advise` also serves ESP32 boards: it is hwde's MCU advice, read before layout. So does `triage`: it reads
+/npie's report of a failed bring-up step and says which side the issue is on.
 
 FPGA verbs: `fpga-setup` `fpga-scaffold` `fpga-build` `fpga-sim`
 `fpga-manifest` `fpga-review`. A task that names an FPGA (fpga, gateware,
