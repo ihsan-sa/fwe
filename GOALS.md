@@ -29,27 +29,6 @@ them and works toward them, and proposes the next step under Proposed goals belo
 Each goal says what to build, which files it touches and how to tell it is done. At most three are open at once, and
 each keeps its status (open, done, failed or dropped) and the pull requests that moved it.
 
-### Write npie's bring-up plan from the manifest
-
-- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
-- **What:** the standing goal asks fwe to "make plans for NPIE to carry out the bringup". The manifest says how to
-  flash and drive the firmware, but not in what order to bring a board up, what to send back when a step fails, or
-  where fwe looks then. `skill/scripts/bringup_plan.py` derives `firmware/bringup-plan.json` (`fwe-bringup-plan/1`,
-  documented in `skill/reference/manifest.md`) from the manifest.
-  1. MCU boards (`fwe-manifest/1`): power, flash, boot, each test hook, then each `safe: false` command behind a
-     human's confirmation; each step with what npie reports and fwe's first suspects.
-  2. ESP32 boards (`fwe-esp32-manifest/1`): power, the ROM-bootloader flash with its boot strap, upstream's console,
-     the NVS settings read back against `nvs.namespaces`, and `fwe_selftest`'s commands once that exists.
-  3. A `bringup` verb in `skill/scripts/task_router.py` (with its recipe) that runs the manifest then the plan, so
-     `/fwe` writes a plan whenever it hands a board to npie.
-- **Done when:** `python -m pytest -q tests/test_bringup_plan.py -k "esp32 or router"` passes (it fails while no such
-  test exists), as part of `make check`, and the pull request is merged.
-- **Status:** open
-- **Pull requests:** [#38](https://github.com/ihsan-sa/fwe/pull/38) did item 1 (`bringup_plan.py` for `fwe-manifest/1`,
-  tested on a fixture manifest). The dispatch/39 branch does item 2 for what an ESP32 manifest has today (power,
-  ROM-bootloader flash with its strap, the ROM's reset line, one NVS readback per setting, its test hooks); the
-  `fwe_selftest` steps come with that component's manifest section. Left: item 3, the `bringup` router verb.
-
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 
 - **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
@@ -125,3 +104,9 @@ What has landed so far, from the git history:
   and `sdkconfig.fwe` hash kept in `fwe_build.json` (#16), build timeouts, flash-args and "IDF missing" tests (#18),
   uv checked before cloning ESP-IDF and the recipe's exit wording (#21), the AK4493S straps and SMUTE (#23). Its Done
   when (#11's boxes ticked and #11 closed) is the owner's to meet; no run's pull request closes #11.
+- Write npie's bring-up plan from the manifest. **Status:** done. `bringup_plan.py` writes `firmware/bringup-plan.json`
+  (`fwe-bringup-plan/1`) for MCU boards (#38) and ESP32 boards (#40), and the `bringup` and `esp32-bringup` router
+  verbs (with `full-run`'s last step) run the manifest then the plan (the dispatch/41 branch). Its check,
+  `python -m pytest -q tests/test_bringup_plan.py -k "esp32 or router"`, passes in `make check`. Left for later:
+  `fwe_selftest`'s steps, once its manifest section exists, and a `send` for the NVS readback once upstream's
+  console command is pinned.
