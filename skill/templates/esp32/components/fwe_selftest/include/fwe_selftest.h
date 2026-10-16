@@ -55,4 +55,18 @@ int fwe_selftest_line(const fwe_selftest_ops_t *ops, const char *line, char *out
  * Returns 0, or -1 for a tap that isn't one of the eight, so the handler answers `ERR unknown tap`. */
 int fwe_st_pcm1863_mux(const char *tap, uint8_t *reg, uint8_t *val);
 
+/* The tone `st tone` plays and the level it reads back, on 32-bit I2S samples (full scale
+ * INT32_MAX, so a full-scale sine is 0 dBFS). Neither needs the DAC or the ADC: the glue fills
+ * the DAC's DMA buffers and hands the PCM1863's capture to the level. */
+#define FWE_ST_TONE_FLOOR_DBFS (-150.0) /* the level of silence, so the answer's JSON stays a number */
+
+/* n mono samples of a hz sine at dbfs, from sample number start, so the glue can fill one DMA
+ * buffer after another and the tone stays continuous. */
+void fwe_st_tone_fill(int32_t *buf, size_t n, uint64_t start, unsigned rate_hz, unsigned hz, double dbfs);
+
+/* The level in dBFS of the hz component of n mono samples (a Hann window and a Goertzel at hz
+ * exactly, not at the nearest bin), so other tones, hum and DC barely move it. Never below
+ * FWE_ST_TONE_FLOOR_DBFS; n == 0 reads as silence. */
+double fwe_st_tone_level(const int32_t *buf, size_t n, unsigned rate_hz, unsigned hz);
+
 #endif

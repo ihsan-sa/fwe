@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -143,6 +144,54 @@ static void test_pcm1863_mux_selects_each_tap(void)
     assert(fwe_st_pcm1863_mux(NULL, &reg, &val) == -1);
 }
 
+static int32_t pcm[48000];
+
+static void test_tone_reads_back_at_its_level(void)
+{
+    static const struct {
+        unsigned hz;
+        double dbfs;
+    } tone[] = {{1000, -20.0}, {20, -6.0}, {20000, -60.0}, {997, 0.0}, {440, -45.5}};
+    for (size_t i = 0; i < sizeof tone / sizeof tone[0]; i++) {
+        fwe_st_tone_fill(pcm, 48000, 0, 48000, tone[i].hz, tone[i].dbfs);
+        assert(fabs(fwe_st_tone_level(pcm, 48000, 48000, tone[i].hz) - tone[i].dbfs) < 0.05);
+        /* 100 ms is enough at 1 kHz, and a part-cycle at the end doesn't matter */
+        assert(fabs(fwe_st_tone_level(pcm, 4801, 48000, tone[i].hz) - tone[i].dbfs) < 0.1 || tone[i].hz < 100);
+    }
+    /* 0 dBFS peaks at full scale and no further */
+    fwe_st_tone_fill(pcm, 48, 12, 48000, 1000, 0.0);
+    assert(pcm[0] == INT32_MAX && pcm[24] == -INT32_MAX);
+}
+
+static void test_tone_fill_is_continuous_across_buffers(void)
+{
+    static int32_t part[1000];
+    fwe_st_tone_fill(pcm, 48000, 0, 44100, 1234, -3.0);
+    /* a day into the tone, buffers line up with one long fill */
+    for (uint64_t start = 0; start < 48000; start += 1000) {
+        fwe_st_tone_fill(part, 1000, start + 44100ull * 86400, 44100, 1234, -3.0);
+        assert(memcmp(part, pcm + start, sizeof part) == 0);
+    }
+}
+
+static void test_tone_level_rejects_other_content(void)
+{
+    /* the wrong tap: a 1 kHz tone, read at 2 kHz, is far down */
+    fwe_st_tone_fill(pcm, 4800, 0, 48000, 1000, 0.0);
+    assert(fwe_st_tone_level(pcm, 4800, 48000, 2000) < -80.0);
+    /* DC and 50 Hz hum at -6 dBFS each barely move a -40 dBFS tone */
+    static int32_t hum[4800];
+    fwe_st_tone_fill(hum, 4800, 0, 48000, 50, -6.0);
+    fwe_st_tone_fill(pcm, 4800, 0, 48000, 1000, -40.0);
+    for (size_t i = 0; i < 4800; i++) pcm[i] += hum[i] / 2 + INT32_MAX / 4;
+    assert(fabs(fwe_st_tone_level(pcm, 4800, 48000, 1000) - (-40.0)) < 0.1);
+    /* silence, no samples or no rate read the floor, never -inf */
+    memset(pcm, 0, sizeof pcm);
+    assert(fwe_st_tone_level(pcm, 4800, 48000, 1000) == FWE_ST_TONE_FLOOR_DBFS);
+    assert(fwe_st_tone_level(pcm, 0, 48000, 1000) == FWE_ST_TONE_FLOOR_DBFS);
+    assert(fwe_st_tone_level(pcm, 4800, 0, 1000) == FWE_ST_TONE_FLOOR_DBFS);
+}
+
 int main(void)
 {
     test_each_command_answers_ok_with_the_handlers_json();
@@ -150,6 +199,9 @@ int main(void)
     test_bad_lines_answer_err();
     test_handler_failures_answer_err();
     test_pcm1863_mux_selects_each_tap();
+    test_tone_reads_back_at_its_level();
+    test_tone_fill_is_continuous_across_buffers();
+    test_tone_level_rejects_other_content();
     printf("fwe_selftest: ok\n");
     return 0;
 }
