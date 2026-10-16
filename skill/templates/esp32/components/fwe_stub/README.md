@@ -7,7 +7,9 @@ beside it, `-Werror` in its CMakeLists.txt. The planned ones, each a follow-up r
 - `fwe_pd_limit`: the USB-PD power limiter, caps amplifier gain to the negotiated contract
   (its `core/` and host test are in; the CH224A I2C and rail ADC glue is not yet).
 - `fwe_xover`: the subwoofer crossover DSP.
-- `fwe_selftest`: power-on self-test of the codecs, amps and network.
+- `fwe_selftest`: the `npie-selftest/1` console (`st rails|pd|tone|net`) for bring-up (its `core/`,
+  the line parsing and `OK {json}`/`ERR <reason>` framing, and host test are in; the handlers
+  and the USB serial and TCP glue are not yet).
 - `fwe_webapp`: the phone web app.
 
 Nothing in upstream calls a component yet. Hooking one in (an init call, a squeezelite
