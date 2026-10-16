@@ -1,0 +1,89 @@
+<!doctype html>
+<!-- The phone web app fwe_webapp serves. Each control's data-key is a key of GET and POST
+     /api/settings, and its min and max are the core's range for it (a host test checks both
+     against core/fwe_webapp.c). No external assets: the board is often on a LAN with no internet. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speaker</title>
+<style>
+body { font: 16px system-ui, sans-serif; margin: 0 auto; max-width: 30em; padding: 1em; }
+h2 { font-size: 1em; margin: 1.5em 0 .5em; }
+label { display: block; margin: .8em 0; }
+label span { float: right; }
+input[type=range], select { width: 100%; }
+#msg { color: #b00; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<p id="msg"></p>
+<label>Input
+  <select data-key="input">
+    <option value="lms">Squeezebox (LMS)</option>
+    <option value="airplay">AirPlay</option>
+    <option value="bt">Bluetooth</option>
+    <option value="spotify">Spotify</option>
+  </select>
+</label>
+<label>Volume <span></span><input type="range" data-key="volume_mb" data-unit="dB" min="-6000" max="0" step="50"></label>
+<h2>EQ</h2>
+<label>Bass <span></span><input type="range" data-key="bass_mb" data-unit="dB" min="-1200" max="1200" step="50"></label>
+<label>Mid <span></span><input type="range" data-key="mid_mb" data-unit="dB" min="-1200" max="1200" step="50"></label>
+<label>Treble <span></span><input type="range" data-key="treble_mb" data-unit="dB" min="-1200" max="1200" step="50"></label>
+<h2>Subs</h2>
+<label>Crossover <span></span><input type="range" data-key="xover_hz" data-unit="Hz" min="40" max="200" step="5"></label>
+<label>Sub 1 level <span></span><input type="range" data-key="sub1_level_mb" data-unit="dB" min="-6000" max="1200" step="50"></label>
+<label>Sub 1 delay <span></span><input type="range" data-key="sub1_delay_us" data-unit="ms" min="0" max="20000" step="100"></label>
+<label>Sub 2 level <span></span><input type="range" data-key="sub2_level_mb" data-unit="dB" min="-6000" max="1200" step="50"></label>
+<label>Sub 2 delay <span></span><input type="range" data-key="sub2_delay_us" data-unit="ms" min="0" max="20000" step="100"></label>
+<script>
+const API = "/api/settings";
+const controls = document.querySelectorAll("[data-key]");
+const msg = document.getElementById("msg");
+
+function show(el) {
+  const out = el.parentElement.querySelector("span");
+  if (!out) return;
+  const v = Number(el.value), unit = el.dataset.unit;
+  out.textContent = unit === "dB" ? (v / 100).toFixed(1) + " dB"
+                  : unit === "ms" ? (v / 1000).toFixed(1) + " ms" : v + " " + unit;
+}
+
+function fill(settings) {
+  for (const el of controls) {
+    if (el.dataset.key in settings) el.value = settings[el.dataset.key];
+    show(el);
+  }
+}
+
+async function call(init) {
+  const r = await fetch(API, init);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || "HTTP " + r.status);
+  return body;
+}
+
+async function load() {
+  try { fill(await call()); msg.textContent = ""; }
+  catch (e) { msg.textContent = "Can't reach the speaker: " + e.message; }
+}
+
+for (const el of controls) {
+  el.addEventListener("input", () => show(el));
+  el.addEventListener("change", async () => {
+    const v = el.dataset.key === "input" ? el.value : Number(el.value);
+    try {
+      fill(await call({method: "POST", headers: {"Content-Type": "application/json"},
+                       body: JSON.stringify({[el.dataset.key]: v})}));
+      msg.textContent = "";
+    } catch (e) {
+      msg.textContent = e.message;
+      load();
+    }
+  });
+}
+load();
+</script>
+</body>
+</html>
