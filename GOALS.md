@@ -105,8 +105,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   handling and a fixture build of both components, and the pull request is merged.
 - **Pull requests:** [#32](https://github.com/ihsan-sa/fwe/pull/32) starts item 1: `fwe_xover`'s `core/` (LR4 low and high pass
   coefficients from 40 to 200 Hz, a per-sample filter step, each sub's level and delay) and its host test, which checks
-  -6 dB at the crossover, -24.6 dB an octave out and a flat sum. Left in item 1: the second I2S port and the delay line
-  in the ESP-IDF glue. The dispatch/33 branch starts item 2: `fwe_webapp`'s `core/` (the settings, GET and POST
+  -6 dB at the crossover, -24.6 dB an octave out and a flat sum. The dispatch/35 branch adds each sub's delay line to
+  `core/` (a fixed ring buffer, 20 ms at up to 96 kHz, cleared when the delay changes). Left in item 1: the second I2S
+  port in the ESP-IDF glue. [#34](https://github.com/ihsan-sa/fwe/pull/34) starts item 2: `fwe_webapp`'s `core/` (the settings, GET and POST
   `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
   test. Left in item 2: the HTTP server, the page, NVS and the self-test route in the ESP-IDF glue.
 
