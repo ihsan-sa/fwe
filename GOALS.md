@@ -85,26 +85,6 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
   test. Left in item 2: the HTTP server, the page, NVS and the self-test route in the ESP-IDF glue.
 
-### Advise hwde on each MCU's configuration before layout
-
-- **Serves:** FWE writes and debugs the firmware, and plans bring-up with NPIE
-- **What:** `skill/scripts/mcu_advice.py` reads a board's draft netlist and writes `firmware/mcu-advice.json`
-  (`fwe-mcu-advice/1`): one item per thing hwde should change while the board is still being drawn, each with its
-  topic, `must` or `should`, the pin, the net, what to do and why. Exit 1 on any `must`.
-  1. STM32: debug access (SWDIO/SWCLK on the table's pins, reaching a header), NRST (on the header, 100 nF to GND) and
-     the BOOT0 strap (held low, not pulled up by a part sharing PB8).
-  2. ESP32: the boot straps (GPIO0, GPIO2, GPIO12/MTDI, GPIO15/MTDO), EN's RC delay and UART0 reachable for the ROM
-     flash, the same straps `bringup_plan.py` already names as boot suspects.
-  3. Clocks (an HSE crystal on the OSC pins when a peripheral needs one, the ESP32's 40 MHz) and an `advise` verb in
-     `task_router.py` with its recipe; its router test runs the advice on an STM32 and an ESP32 fixture.
-- **Done when:** `python -m pytest -q tests/test_mcu_advice.py -k router` passes in `make check` (item 3's test, which
-  needs items 1 and 2).
-- **Status:** open
-- **Pull requests:** [#44](https://github.com/ihsan-sa/fwe/pull/44) did item 1, with `tests/test_mcu_advice.py` on
-  fixture G431 netlists. The dispatch/45 branch did item 2: GPIO0/2/12/15 held the wrong way at reset, GPIO0 with no
-  button or auto-reset, EN's pull-up and 1 uF, UART0 taken or not reaching a header or bridge, on fixture WROVER-E
-  netlists; an ESP32-C3/S3 is refused. Left: item 3.
-
 ## Closed
 
 What has landed so far, from the git history:
@@ -130,3 +110,9 @@ What has landed so far, from the git history:
   `python -m pytest -q tests/test_bringup_plan.py -k "esp32 or router"`, passes in `make check`. Left for later:
   `fwe_selftest`'s steps, once its manifest section exists, and a `send` for the NVS readback once upstream's
   console command is pinned.
+- Advise hwde on each MCU's configuration before layout. **Status:** done. `mcu_advice.py` writes
+  `firmware/mcu-advice.json` (`fwe-mcu-advice/1`) from the draft netlist: STM32 debug access, NRST and BOOT0
+  ([#44](https://github.com/ihsan-sa/fwe/pull/44)); classic ESP32 straps, EN and UART0
+  ([#46](https://github.com/ihsan-sa/fwe/pull/46)); clocks (an HSE crystal when the board has CAN, a bare ESP32's
+  40 MHz crystal, load caps) and the `advise` router verb for STM32 and ESP32 boards, with its recipe (the dispatch/47
+  branch). Its check, `python -m pytest -q tests/test_mcu_advice.py -k router`, passes in `make check`.

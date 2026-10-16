@@ -1,7 +1,9 @@
 """/fwe mcu_advice.py: fwe's advice to hwde on an MCU's setup, from a draft netlist.
 
 Each case writes a small STM32G431 netlist (test_pinmap's fixture helpers)
-and checks the advice on debug access, reset and the BOOT0 strap.
+and checks the advice on debug access, reset, the BOOT0 strap and clocks;
+the ESP32 cases use WROVER-E and bare-chip fixtures, and the router cases
+plan the `advise` verb and run its step on both.
 """
 from __future__ import annotations
 
@@ -9,11 +11,14 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import mcu_advice  # noqa: E402
+import task_router  # noqa: E402
 from test_pinmap import _net, write_board  # noqa: E402
 
 PA13, PA14 = ("U1", "37", "PA13_37"), ("U1", "38", "PA14_38")
@@ -154,3 +159,64 @@ def test_esp32_s3_is_refused(tmp_path, capsys):
     ws = write_board(tmp_path, [_net("GND", ("U1", "1", "GND"))], {"U1": "ESP32-S3-WROOM-1"})
     assert mcu_advice.main(["--workspace", str(ws)]) == 2
     assert "ESP32-S3" in json.loads(capsys.readouterr().out)["error"]
+
+
+OSC_IN, OSC_OUT, PA12 = ("U1", "5", "PF0-OSC_IN_5"), ("U1", "6", "PF1-OSC_OUT_6"), ("U1", "33", "PA12_33")
+
+
+def clocks(res):
+    return [(a["severity"], a["pin"]) for a in res["advice"] if a["topic"] == "clock"]
+
+
+def test_stm32_can_with_no_crystal_asks_for_the_hse(tmp_path):
+    res = mcu_advice.advise(board(tmp_path, comps={"U2": "TCAN1042"},
+                                  boot=[_net("/BOOT0", BOOT0, ("R1", "1", "1")),
+                                        _net("/FDCAN_TX", PA12, ("U2", "1", "TXD")),
+                                        _net("/LED_RUN", OSC_IN)]), None)
+    assert clocks(res) == [("should", "PF0")]
+    assert "LED_RUN" in res["advice"][-1]["says"] and "FDCAN_TX" in res["advice"][-1]["why"]
+
+
+def test_stm32_crystal_needs_a_load_cap_each_side_and_no_can_needs_none(tmp_path):
+    xtal = [_net("/BOOT0", BOOT0, ("R1", "1", "1")), _net("/OSC_IN", OSC_IN, ("Y1", "1", "1"), ("C2", "1", "1")),
+            _net("/OSC_OUT", OSC_OUT, ("Y1", "2", "2"))]
+    res = mcu_advice.advise(board(tmp_path / "a", boot=xtal, comps={"Y1": "8MHz", "C2": "10pF"},
+                                  v33=[]), None)
+    assert clocks(res) == [("should", "PF0"), ("should", "PF1")]   # C2 floats: not to GND
+    bare = mcu_advice.advise(board(tmp_path / "b"), None)
+    assert clocks(bare) == []
+
+
+def esp_chip(tmp: Path, crystal=None) -> Path:
+    nets = [_net("GND", ("U1", "1", "GND"), ("C5", "2", "2"), ("C6", "2", "2")),
+            _net("/XTAL_P", ("U1", "44", "XTAL_P"), *([("Y1", "1", "1"), ("C5", "1", "1")] if crystal else [])),
+            _net("/XTAL_N", ("U1", "45", "XTAL_N"), *([("Y1", "3", "3"), ("C6", "1", "1")] if crystal else []))]
+    return write_board(tmp, nets, {"U1": "ESP32-D0WD-V3", "C5": "10pF", "C6": "10pF",
+                                   **({"Y1": crystal} if crystal else {})})
+
+
+def test_esp32_bare_chip_needs_its_40mhz_crystal(tmp_path):
+    none = mcu_advice.advise(esp_chip(tmp_path / "a"), None)
+    assert ("must", "XTAL_N") in clocks(none)
+    wrong = mcu_advice.advise(esp_chip(tmp_path / "b", "26MHz"), None)
+    assert clocks(wrong) == [("should", "XTAL_N")] and "26MHz" in wrong["advice"][-1]["says"]
+    right = mcu_advice.advise(esp_chip(tmp_path / "c", "40MHz 10pF"), None)
+    assert clocks(right) == []
+
+
+@pytest.mark.parametrize("task", ["advise hwde on the MCU before layout", "advise on the esp32 straps"])
+def test_router_picks_advise_for_mcu_and_esp32_tasks(task):
+    assert task_router.match(task) == ["advise"]
+
+
+@pytest.mark.parametrize("make,part", [(board, "STM32G431CBT6"), (esp_board, "ESP32-WROVER-E-N8R8")])
+def test_router_runs_the_advice_on_an_stm32_and_an_esp32(tmp_path, make, part):
+    ws = make(tmp_path)
+    assert task_router.main(["--verb", "advise", "--workspace", str(ws), "--out", str(tmp_path / "o.json")]) == 0
+    res = json.loads((tmp_path / "o.json").read_text())
+    assert Path(res["doc"]).is_file() and [s["kind"] for s in res["steps"]] == ["script"]
+    script, *args = res["steps"][0]["cmd"].split()[1:]
+    assert Path(script).name == "mcu_advice.py"
+    assert mcu_advice.main(args) == 0
+    advice = json.loads((ws / "firmware" / "mcu-advice.json").read_text())
+    assert advice["mcu"]["part"] == part and advice["ok"]

@@ -8,7 +8,8 @@ reference/recipes/<verb>.md, which the session reads before executing.
 A task that names an FPGA (fpga, gateware, verilog, rtl, bitstream, serdes,
 yosys, nextpnr, cocotb) matches only the `fpga-*` verbs; one that names the
 ESP32 (esp32, esp-idf, idf.py, squeezelite, wrover) only the `esp32-*` verbs;
-any other task matches only the MCU verbs.
+any other task matches only the MCU verbs. `advise` is both an MCU and an
+ESP32 verb.
 
   task_router.py --task "build the firmware" --workspace PCB-0018-A_bldc-motor-driver
   task_router.py --verb test --workspace <board>
@@ -75,6 +76,14 @@ VERBS = {
         "match": [r"\bbring.?up plan\b", r"\bplan (the |a )?bring.?up\b"],
         "summary": "write firmware/fwe-manifest.json, then firmware/bringup-plan.json, the steps /npie carries out",
         "steps": ["fw_manifest.py --workspace {ws}", "bringup_plan.py --workspace {ws}"],
+    },
+    "advise": {
+        "targets": ("mcu", "esp32"),
+        "match": [r"\badvi[cs]e\b", r"\bbefore layout\b",
+                  r"\b(mcu|strap\w*|clock\w*) (config\w*|setup|advice)\b"],
+        "summary": "advise hwde on the MCU's debug, reset, boot straps and clocks from the draft netlist: "
+                   "firmware/mcu-advice.json",
+        "steps": ["mcu_advice.py --workspace {ws}"],
     },
     "stage": {
         "match": [r"\b(stage|six.?step|foc|commutat\w*|bring.?up firmware|add (a )?command)\b"],
@@ -221,7 +230,7 @@ def target(v: dict) -> str:
 def match(task: str) -> list[str]:
     t = task.lower().strip()
     want = "fpga" if FPGA.search(t) else "esp32" if ESP32.search(t) else "mcu"
-    return [n for n, v in VERBS.items() if target(v) == want
+    return [n for n, v in VERBS.items() if want in v.get("targets", (target(v),))
             and any(re.search(rx, t) for rx in v["match"])]
 
 

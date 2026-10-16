@@ -17,6 +17,11 @@ GPIO2 not held high, GPIO12 (MTDI) not held high, GPIO15 (MTDO) not held low,
 EN pulled up with its RC delay, and UART0 (GPIO1, GPIO3) reaching a header or
 a USB-UART bridge. An ESP32-C3/S3 is refused (exit 2), as in pinmap.py.
 
+Clocks: an STM32 board with a CAN net gets an HSE crystal on OSC_IN/OSC_OUT
+(the HSI is too loose for FDCAN's bit timing); a bare ESP32 chip gets its
+40 MHz crystal on XTAL_P/XTAL_N (a module carries its own); any crystal on
+those pins gets a load capacitor to GND on each side.
+
 Writes <workspace>/firmware/mcu-advice.json (schema fwe-mcu-advice/1):
 {"schema", "board", "workspace", "netlist", "netlist_sha256", "mcu",
 "advice": [{"topic", "severity", "pin", "net", "says", "why"}], "ok"}.
@@ -218,17 +223,74 @@ def esp32_uart_advice(nl: Netlist, mcu: str, io: dict) -> list[dict]:
     return out
 
 
+def _crystals(nl: Netlist, net: str | None) -> list[str]:
+    return [] if _unconnected(net) else [r for r, _ in nl.refs_on(net) if r.startswith("Y")]
+
+
+def _load_caps(nl: Netlist, osc: list[tuple[str, str | None]]) -> list[dict]:
+    return [_item("clock", "should", pin, net, f"add a load capacitor from {short(net)} to GND",
+                  "the crystal's datasheet load capacitance sets its frequency and start-up margin")
+            for pin, net in osc if not any(v == 0 for _, v in _to_rails(nl, net, "C"))]
+
+
+_CAN = re.compile(r"(FD)?CAN\d?_(TX|RX)", re.I)
+
+
+def stm32_clock_advice(nl: Netlist, mcu: str, osc_in, osc_out) -> list[dict]:
+    """An HSE crystal on OSC_IN/OSC_OUT when the board has CAN, and its load caps when it has one."""
+    if osc_in is None:
+        return []
+    (pin, net), xo = osc_in, (osc_out or (None, None))
+    if _crystals(nl, net):
+        return _load_caps(nl, [(pin, net)] + ([xo] if _crystals(nl, xo[1]) else []))
+    can = sorted({short(n) for n in nl.pins[mcu].values() if n and _CAN.fullmatch(short(n))})
+    if not can:
+        return []
+    says = f"put an 8 MHz crystal on {pin} (OSC_IN) and {xo[0] or 'OSC_OUT'} (OSC_OUT) for the HSE"
+    if not _unconnected(net):
+        says += f", moving {short(net)} to another pin"
+    return [_item("clock", "should", pin, net, says,
+                  f"{', '.join(can)} need the HSE: FDCAN's bit timing allows about 0.5 %, and the HSI drifts "
+                  "by up to 1 % over temperature")]
+
+
+_MHZ = re.compile(r"(\d+(?:\.\d+)?)\s*MHz", re.I)
+
+
+def esp32_clock_advice(nl: Netlist, part: str, xtal: list[tuple[str, str | None]]) -> list[dict]:
+    """A bare ESP32 chip needs its 40 MHz crystal on XTAL_P/XTAL_N; a module carries its own."""
+    if re.search(r"WROOM|WROVER|MINI|SOLO|PICO", part, re.I) or not xtal:
+        return []
+    ys = sorted({y for _, net in xtal for y in _crystals(nl, net)})
+    if not ys:
+        pin, net = xtal[0]
+        return [_item("clock", "must", pin, net, "put a 40 MHz crystal on XTAL_P and XTAL_N",
+                      f"a bare {part} has no clock of its own; without the crystal it never starts")]
+    out = []
+    for y in ys:
+        m = _MHZ.search(nl.comps[y]["value"])
+        if m and float(m.group(1)) != 40:
+            pin, net = next((p, n) for p, n in xtal if y in _crystals(nl, n))
+            out.append(_item("clock", "should", pin, net, f"fit a 40 MHz crystal as {y}, not {m.group(0)}",
+                             "squeezelite's sdkconfig builds for a 40 MHz crystal; another one runs every "
+                             "clock, the UART baud and Wi-Fi, off frequency"))
+    return out + _load_caps(nl, [(p, n) for p, n in xtal if _crystals(nl, n)])
+
+
 def advise_esp32(nl: Netlist, mcu: str) -> tuple[str, list[dict]]:
-    io, en = {}, None
+    io, en, xtal = {}, None, []
     for num, net in nl.pins[mcu].items():
         func = nl.func[(mcu, num)]
         g = squeezelite.gpio_of(func)
+        name = re.sub(r"_\d+$", "", func).upper()
         if g is not None:
             io[g] = net
-        elif re.sub(r"_\d+$", "", func).upper() in ("EN", "CHIP_PU"):
+        elif name in ("EN", "CHIP_PU"):
             en = net
+        elif name in ("XTAL_P", "XTAL_N"):
+            xtal.append((name, net))
     advice = esp32_strap_advice(nl, mcu, io) + esp32_en_advice(nl, "EN", en) + esp32_uart_advice(nl, mcu, io)
-    return "esp32", advice
+    return "esp32", advice + esp32_clock_advice(nl, nl.comps[mcu]["value"], sorted(xtal))
 
 
 def advise(ws: Path, mcu_ref: str | None) -> dict:
@@ -245,7 +307,7 @@ def advise(ws: Path, mcu_ref: str | None) -> dict:
         fam, advice = advise_esp32(nl, mcu)
         return _result(ws, netfile, mcu, part, fam, advice)
     fam, table = pinmap.load_mcu_table(part)
-    io, reset, boot = {}, None, None
+    io, reset, boot, osc_in, osc_out = {}, None, None, None, None
     for num, net in nl.pins[mcu].items():
         func = nl.func[(mcu, num)]
         g = pinmap._GPIO.match(func)
@@ -255,11 +317,16 @@ def advise(ws: Path, mcu_ref: str | None) -> dict:
             reset = (g.group(1) if g else "NRST", net)
         if "BOOT0" in func.upper():
             boot = (g.group(1) if g else "BOOT0", net)
+        if "OSC_IN" in func.upper() and "OSC32" not in func.upper():
+            osc_in = (g.group(1) if g else "OSC_IN", net)
+        if "OSC_OUT" in func.upper() and "OSC32" not in func.upper():
+            osc_out = (g.group(1) if g else "OSC_OUT", net)
     advice = debug_advice(nl, mcu, table, io)
     if reset:
         advice += reset_advice(nl, mcu, *reset)
     if boot:
         advice += boot_advice(nl, *boot)
+    advice += stm32_clock_advice(nl, mcu, osc_in, osc_out)
     return _result(ws, netfile, mcu, part, fam, advice)
 
 
