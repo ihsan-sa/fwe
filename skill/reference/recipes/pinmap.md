@@ -31,3 +31,8 @@ nothing and exits 1 on drift; `fw_build.py` runs it first.
   `codec_unverified` finding: fill the sequence from the datasheet and set
   `verified` rather than flashing it. RMII pins taken by something else, an
   output on GPIO34-39, or a flash/PSRAM pin in use are findings too.
+  The amp rail's current sense (a net like `AMP_ISNS`), which `fwe_pd_limit`
+  reads, must sit on an ADC1 pin (GPIO32-39; ADC2 is Wi-Fi's) or it is an
+  `isns_not_adc1` finding; its amp and shunt are read as on an STM32 board
+  and land in `board_pins.h` as `RAIL_ISNS_ADC1_CH`, `RAIL_ISNS_REF_V` and
+  `RAIL_ISNS_V_PER_A`.
