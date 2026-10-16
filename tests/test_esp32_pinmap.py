@@ -248,6 +248,25 @@ def test_line_in_adc_goes_to_our_namespace(tmp_path):
     assert "linein_config" not in m["squeezelite"]["config"]
 
 
+def test_pcm1863_wired_mux_inputs_are_tone_taps(tmp_path):
+    nets = base_nets() + [
+        _net("/audio/I2S_DIN", (U, "8", "IO32"), ("U6", "8", "DOUT")),
+        _net("/audio/DAC_OUTL", ("U2", "6", "OUTL"), ("C5", "1", "")),
+        _net("Net-(C5-Pad2)", ("C5", "2", ""), ("U6", "1", "VINL1")),          # through its coupling cap
+        _net("/audio/AMP_SENSE_R", ("U6", "2", "VINR1")),
+        _net("unconnected-(U6-VINL2)", ("U6", "3", "VINL2")),
+    ]
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR", "U6": "PCM1863PWR",
+                                       "C5": "1u"})
+    m = pinmap.build(ws, None)
+    assert m["tone_taps"] == [{"tap": "VINL1", "ref": "U6", "net": "DAC_OUTL"},
+                              {"tap": "VINR1", "ref": "U6", "net": "AMP_SENSE_R"}]
+    # The input pin names are from memory, so the ADC carries a codec_pins_unchecked finding.
+    assert {f["ref"] for f in m["findings"] if f["kind"] == "codec_pins_unchecked"} == {"U6"}
+    pm = write_board(tmp_path / "b", base_nets(), {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102APWR"})
+    assert pinmap.build(pm, None)["tone_taps"] == []
+
+
 def test_nvs_csv_round_trips_through_csv_and_refuses_long_keys():
     text = squeezelite.nvs_csv({"config": {"dac_config": "model=I2S,bck=33",
                                            "dac_controlset": '{"init":[]}'}, "fwe": {}})

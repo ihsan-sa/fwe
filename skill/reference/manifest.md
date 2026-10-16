@@ -138,7 +138,7 @@ ESP-IDF's first `I (…)` log line, on upstream's console), then one
 `nvs:<namespace>.<key>` step per setting in `nvs.namespaces`, read back over
 upstream's console and compared verbatim with `expect`, then one `st:<name>`
 step per `selftest` command once that section is `ready` (none while it is
-false, and not `st tone`, whose taps the manifest doesn't name yet), its
+false, and not yet `st tone`, whose `taps` the plan doesn't use yet), its
 `expect` the section's `answer.ok`, then its test hooks as above. Any other
 schema is refused.
 
@@ -216,7 +216,10 @@ A board with our `fwe_selftest` component also has a `selftest` section, the con
 /npie drives in bring-up (`npie-selftest/1`). Each `send` line gets one answer line,
 matching `answer.ok` (`OK {json}`) or `answer.err` (`ERR <reason>`). `st tone`'s `args`
 are its tap pattern and its `hz` and `dbfs` ranges, inclusive, read from the
-component's header. `ready` is false while the component is only its `core/` (no
+component's header, and its `taps` are the line-in ADC's analog mux inputs the board
+wires (the PCM1863's `VINL1`-`VINR4`), each with the named net it reads, through a
+coupling cap, as the pin map found them (`tone_taps` in `pinmap.json`); empty when the
+board has no such ADC. `ready` is false while the component is only its `core/` (no
 handlers, no USB serial or TCP glue), and /npie sends no `st` line until it is true.
 
 ```json
@@ -224,7 +227,8 @@ handlers, no USB serial or TCP glue), and /npie sends no `st` line until it is t
   "protocol": "npie-selftest/1", "component": "fwe_selftest",
   "commands": [{"name": "rails", "send": "st rails"}, {"name": "pd", "send": "st pd"},
                {"name": "tone", "send": "st tone <tap> <hz> <dBFS>",
-                "args": {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000], "dbfs": [-60.0, 0.0]}},
+                "args": {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000], "dbfs": [-60.0, 0.0]},
+                "taps": [{"tap": "VINL1", "net": "DAC_OUTL"}]},
                {"name": "net", "send": "st net"}],
   "answer": {"ok": "^OK \\{", "err": "^ERR "},
   "ready": false

@@ -51,8 +51,9 @@ def module(part: str) -> dict:
             "psram_mb": int(m.group(2)) if m and m.group(2) else 0 if m else None}
 
 
-def selftest(fw: Path) -> dict | None:
-    """The fwe_selftest console's commands, `st tone`'s ranges as its header defines them.
+def selftest(fw: Path, taps: list[dict]) -> dict | None:
+    """The fwe_selftest console's commands, `st tone`'s ranges as its header defines them
+    and its taps (the line-in ADC's wired mux inputs) as the pin map found them.
 
     `ready` is whether the component has more than core/ (the handlers and the
     USB serial/TCP glue); /npie runs no `st` line while it is false.
@@ -71,7 +72,8 @@ def selftest(fw: Path) -> dict | None:
             {"name": "tone", "send": "st tone <tap> <hz> <dBFS>",
              "args": {"tap": f"^[A-Za-z0-9_]{{1,{int(d['TAP_MAX'])}}}$",
                       "hz": [int(d["TONE_MIN_HZ"]), int(d["TONE_MAX_HZ"])],
-                      "dbfs": [d["TONE_MIN_DBFS"], 0.0]}},
+                      "dbfs": [d["TONE_MIN_DBFS"], 0.0]},
+             "taps": [{"tap": t["tap"], "net": t["net"]} for t in taps]},
             {"name": "net", "send": "st net"},
         ],
         "answer": {"ok": r"^OK \{", "err": "^ERR "},
@@ -123,7 +125,7 @@ def derive(fw: Path) -> tuple[dict | None, str | None]:
                 "namespaces": pm.get("squeezelite", {})},
         "commands": [],
         "test_hooks": [],
-        **({"selftest": st} if (st := selftest(fw)) else {}),
+        **({"selftest": st} if (st := selftest(fw, pm.get("tone_taps", []))) else {}),
         "verified": {"build": build_ok, "host_tests": ht_ok, "hardware": False},
     }
     return man, None

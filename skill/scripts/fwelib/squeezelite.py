@@ -164,6 +164,31 @@ def _i2c_addr(nl, part: dict, findings: list) -> int | None:
     return None
 
 
+def _source(nl, net: str) -> str:
+    """The named net an analog input reads: an auto-named net (Net-(C5-Pad1)) is
+    followed through series caps and resistors, two-part nets only, to the first named one."""
+    seen = {net}
+    while net.rsplit("/", 1)[-1].startswith("Net-("):
+        nodes = nl.refs_on(net)
+        nxt = [(r, p) for r, p in nodes if r[0] in "CR" and nl.other_net(r, p) not in seen]
+        if len(nodes) != 2 or len(nxt) != 1:
+            break
+        net = nl.other_net(*nxt[0])
+        seen.add(net)
+    return net.rsplit("/", 1)[-1]
+
+
+def tone_taps(nl, parts: list[dict]) -> list[dict]:
+    """Each wired analog mux input of the line-in ADC: a tap `st tone` reads the tone back on."""
+    taps = []
+    for part in (x for x in parts if x["kind"] == "adc"):
+        for name in part.get("inputs", []):
+            net = _part_pin_net(nl, part["ref"], name)
+            if net and not net.rsplit("/", 1)[-1].startswith("unconnected-"):
+                taps.append({"tap": name, "ref": part["ref"], "net": _source(nl, net)})
+    return taps
+
+
 def build(nl, mcu: str, codecs: dict) -> dict:
     """pins, power_pins, squeezelite (namespace -> key -> value) and findings."""
     findings: list[dict] = []
@@ -228,6 +253,7 @@ def build(nl, mcu: str, codecs: dict) -> dict:
              for p in pins if p["role"] != "unused" and p["gpio"] in STRAPPING]
     return {"pins": pins, "power_pins": power,
             "parts": [{"ref": x["ref"], "part": x["part"], "kind": x["kind"]} for x in parts],
+            "tone_taps": tone_taps(nl, parts),
             "squeezelite": {"config": cfg, "fwe": fwe}, "notes": notes, "findings": findings}
 
 

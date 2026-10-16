@@ -287,6 +287,12 @@ def test_manifest_selftest_follows_the_component_header(board):
     assert [c["send"].split()[1] for c in st["commands"]] == ["rails", "pd", "tone", "net"]
     assert st["commands"][2]["args"] == {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000],
                                          "dbfs": [-60.0, 0.0]}
+    assert st["commands"][2]["taps"] == []               # this board has no line-in ADC
+    pm = json.loads((fw / "pinmap.json").read_text())
+    pm["tone_taps"] = [{"tap": "VINL1", "ref": "U6", "net": "DAC_OUTL"}]
+    (fw / "pinmap.json").write_text(json.dumps(pm))
+    st = esp32_manifest.derive(fw)[0]["selftest"]
+    assert st["commands"][2]["taps"] == [{"tap": "VINL1", "net": "DAC_OUTL"}]
     assert st["ready"] is False                          # core/ only, no glue yet
     (fw / "components" / "fwe_selftest" / "fwe_selftest_idf.c").write_text("\n")
     assert esp32_manifest.derive(fw)[0]["selftest"]["ready"] is True
