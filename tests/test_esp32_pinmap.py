@@ -114,6 +114,43 @@ def test_i2c_codec_gets_controlset_and_an_unverified_sequence_is_a_finding(tmp_p
     assert cfg["set_GPIO"] == "2=amp:1"
 
 
+def test_hifi_max_tpa3255_amp_and_es9018k2m_dac(tmp_path):
+    nets = [_net("+3V3", (U, "2", "3V3"), ("U2", "9", "ADDR")), _net("GND", (U, "1", "GND"))] + base_nets()[2:5] + [
+        _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+        _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+        _net("/amp/AMP_ON", (U, "24", "IO2"), ("U4", "9", "~{RESET}")),
+        _net("/amp/AMP_FLT", (U, "8", "IO32"), ("U4", "10", "~{FAULT}")),
+        _net("/amp/OTW", (U, "4", "SENSOR_VP"), ("U4", "11", "~{CLIP_OTW}")),
+    ]
+    ws = write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "ES9018K2M", "U4": "TPA3255DDV"})
+    m = pinmap.build(ws, None)
+    assert {(p["ref"], p["kind"]) for p in m["parts"]} == {("U2", "dac"), ("U4", "amp")}
+    cfg = m["squeezelite"]["config"]
+    # The analog amp is not an I2S sink, so the DAC owns dac_config; ADDR high is 0x49.
+    assert cfg["dac_config"].split(",")[:4] == ["model=I2S", "bck=33", "ws=26", "do=25"]
+    assert "i2c=73" in cfg["dac_config"].split(",")
+    assert cfg["set_GPIO"] == "2=amp:1,32=spkfault:0"
+    assert m["squeezelite"]["fwe"]["amp_warn_gpio"] == "36:0"
+    kinds = {f["kind"] for f in m["findings"]}
+    assert {"codec_unverified", "codec_pins_unchecked"} <= kinds and "several_i2s_sinks" not in kinds
+    # The TPA3255's pins are taken from the TPA3245 and not checked, so the amp gets its own finding.
+    assert {f["ref"] for f in m["findings"] if f["kind"] == "codec_pins_unchecked"} == {"U2", "U4"}
+
+
+def test_hifi_lite_tas5825p_is_not_taken_for_the_tas5825m(tmp_path):
+    nets = base_nets()[:5] + [
+        _net("/audio/I2C_SDA", (U, "13", "IO14"), ("U2", "20", "SDA")),
+        _net("/audio/I2C_SCL", (U, "23", "IO15"), ("U2", "21", "SCL")),
+        _net("/audio/AMP_PDN", (U, "24", "IO2"), ("U2", "22", "PDN")),
+    ]
+    m = pinmap.build(write_board(tmp_path, nets, {U: "ESP32-WROVER-E-N8R8", "U2": "TAS5825PRHBR"}), None)
+    cfg = m["squeezelite"]["config"]
+    # The TAS5825M's unchecked sequence would be a wrong guess for the P; its init stays empty.
+    assert json.loads(cfg["dac_controlset"]) == {"init": [], "poweron": [], "poweroff": []}
+    assert cfg["set_GPIO"] == "2=amp:1"
+    assert {"codec_unverified", "codec_pins_unchecked"} <= {f["kind"] for f in m["findings"]}
+
+
 def test_ak4493s_address_reads_both_straps_and_smute_mutes_high(tmp_path):
     # i2c_addr is indexed by CAD1 CAD0; the old code read CAD0 alone, so CAD1 high gave 16 or 17.
     for cad1, cad0, want in ((0, 0, 16), (0, 1, 17), (1, 0, 18), (1, 1, 19)):
