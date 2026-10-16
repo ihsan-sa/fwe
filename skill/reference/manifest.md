@@ -119,6 +119,19 @@ regex `expect` on the reply, a timeout, and the rails the hook needs powered
 energises the bridge; anything that does is a `commands` entry with
 `safe: false` and belongs in a human-confirmed /npie step.
 
+## The bring-up plan
+
+`scripts/bringup_plan.py` turns the manifest into `firmware/bringup-plan.json`
+(schema `fwe-bringup-plan/1`), the steps /npie carries out on the real board, in
+order: `power` (a human brings up the rails the hooks need, current-limited),
+`flash`, `boot` (the banner, then the `EVT` boot line), one `hook:<name>` per
+test hook (unattended), then one `cmd:<name>` per `safe: false` command, each
+sent only after a human confirms it (`kind: confirm`, with `safety` as
+`limits`). /npie stops at the first step that fails and reports the step id,
+the console lines it saw and the supply current (`on_fail.report`); each step's
+`fwe_suspects` is where /fwe looks first for the firmware side of it. Only
+`fwe-manifest/1` is planned so far; an ESP32 manifest is refused.
+
 ## Versioning
 
 `schema` changes its number on any breaking change. Additive keys are
