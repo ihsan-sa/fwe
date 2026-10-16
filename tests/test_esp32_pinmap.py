@@ -151,6 +151,33 @@ def test_hifi_lite_tas5825p_is_not_taken_for_the_tas5825m(tmp_path):
     assert {"codec_unverified", "codec_pins_unchecked"} <= {f["kind"] for f in m["findings"]}
 
 
+def _isns_board(tmp: Path, func: str) -> dict:
+    """The amp rail: an INA180A2 (no REF pin) across a 5 mOhm shunt, its OUT through R10 to `func`."""
+    nets = base_nets()[:5] + [
+        _net("/amp/PVDD_IN", ("R11", "1", ""), ("U5", "4", "IN+")),
+        _net("/amp/PVDD", ("R11", "2", ""), ("U5", "5", "IN-")),
+        _net("/amp/ISNS_OUT", ("U5", "1", "OUT"), ("R10", "1", "")),
+        _net("/amp/AMP_ISNS", (U, "6", func), ("R10", "2", "")),
+        _net("GND", (U, "1", "GND"), ("U5", "2", "GND")),
+    ]
+    tmp.mkdir()
+    comps = {U: "ESP32-WROVER-E-N8R8", "U2": "PCM5102A", "U5": "INA180A2", "R10": "100", "R11": "5mR"}
+    return pinmap.build(write_board(tmp, nets, comps), None)
+
+
+def test_amp_rail_current_sense_gets_its_adc1_channel_and_scaling(tmp_path):
+    m = _isns_board(tmp_path / "adc1", "IO34")
+    a = m["analog"]["AMP_ISNS"]
+    assert (a["amp"], a["gain_v_per_v"], a["shunt_ohm"], a["ref_v"], a["adc1_channel"]) == \
+        ("U5", 50, 0.005, 0.0, 6)
+    h = squeezelite.header(m)
+    assert "#define RAIL_ISNS_ADC1_CH 6" in h and "#define RAIL_ISNS_V_PER_A 0.25f" in h
+    assert "#define RAIL_ISNS_REF_V 0.0f" in h
+    # On an ADC2 pin it can't be read with Wi-Fi up: a finding, and no scaling for the limiter.
+    m = _isns_board(tmp_path / "adc2", "IO4")
+    assert m["analog"] == {} and "isns_not_adc1" in {f["kind"] for f in m["findings"]}
+
+
 def test_ak4493s_address_reads_both_straps_and_smute_mutes_high(tmp_path):
     # i2c_addr is indexed by CAD1 CAD0; the old code read CAD0 alone, so CAD1 high gave 16 or 17.
     for cad1, cad0, want in ((0, 0, 16), (0, 1, 17), (1, 0, 18), (1, 1, 19)):

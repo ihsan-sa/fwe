@@ -27,7 +27,7 @@ the netlist gives now, so a re-spun board fails the firmware build until the
 map is regenerated.
 
 JSON to stdout (or --out): {"ok", "board", "mcu", "pins", "rails", "analog"
-(STM32 boards), "fault_routes" (HRTIM boards only), "parts", "squeezelite",
+(on an ESP32 board only the amp rail's current sense, for fwe_pd_limit), "fault_routes" (HRTIM boards only), "parts", "squeezelite",
 "notes" (ESP32 boards), "findings", "files"}. Exit 0 ok, 1 findings or drift (--check), 2 error.
 A finding is anything the map could not derive (an unclassified pin, an
 analog input with no ADC channel, a timer group with no common timer, a
@@ -368,7 +368,8 @@ def _csa(nl: Netlist, pin: dict, amp: str, series_r: str, findings: list) -> dic
             gain = table.get(value.upper()[len(prefix):len(prefix) + 2])
     by_func = {nl.func[(amp, p)].split("_")[0].upper(): n for p, n in nl.pins[amp].items()}
     refs = [nl.volts(n) for f, n in by_func.items() if re.fullmatch(r"REF\d?", f)]
-    ref_v = sum(refs) / len(refs) if refs and None not in refs else None
+    # No REF pin (an INA180): the output is referenced to ground.
+    ref_v = (sum(refs) / len(refs) if None not in refs else None) if refs else 0.0
     plus, minus = nl.tied(by_func.get("IN+", "")), nl.tied(by_func.get("IN-", ""))
     shunt = None
     for r, pins in nl.pins.items():
@@ -490,11 +491,21 @@ def build_esp32(ws: Path, netfile: Path, nl: Netlist, mcu: str, part: str) -> di
     """An ESP32 module board: pins plus squeezelite-esp32's NVS config (fwelib/squeezelite.py)."""
     sq = squeezelite.build(nl, mcu, json.loads(CODECS.read_text(encoding="utf-8")))
     rails = {net: nl.volts(next(n for n in nl.nets if short(n) == net)) for net in sorted(sq["power_pins"])}
+    # The amp rail's current sense (fwe_pd_limit): the same amp-and-shunt chain an STM32 board's i_sense has.
+    analog = {}
+    for p in sq["pins"]:
+        if p["role"] == "rail_isns" and p["gpio"] in squeezelite.ADC1:
+            full = next(n for n in nl.nets if short(n) == p["net"])
+            a = analog_scaling(nl, {"role": "i_sense", "net": p["net"], "net_full": full}, sq["findings"])
+            if a:
+                analog[p["net"]] = {**a, "adc1_channel": squeezelite.ADC1[p["gpio"]]}
+            break  # a second one is a duplicate_role finding
     return {"board": ws.name.split("_", 1)[0], "workspace": ws.name,
             "netlist": f"kicad/{netfile.name}",
             "netlist_sha256": hashlib.sha256(netfile.read_bytes()).hexdigest(),
             "mcu": {"ref": mcu, "part": part, "table": "esp32", "source": "ESP32 datasheet, IO_MUX"},
-            "pins": sq["pins"], "power_pins": sq["power_pins"], "rails": rails, "parts": sq["parts"],
+            "pins": sq["pins"], "power_pins": sq["power_pins"], "rails": rails, "analog": analog,
+            "parts": sq["parts"],
             "squeezelite": sq["squeezelite"], "notes": sq["notes"], "findings": sq["findings"]}
 
 
