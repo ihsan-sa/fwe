@@ -138,7 +138,8 @@ ESP-IDF's first `I (…)` log line, on upstream's console), then one
 `nvs:<namespace>.<key>` step per setting in `nvs.namespaces`, read back over
 upstream's console and compared verbatim with `expect`, then one `st:<name>`
 step per `selftest` command once that section is `ready` (none while it is
-false, and not yet `st tone`, whose `taps` the plan doesn't use yet), its
+false; `st tone` is one `st:tone.<tap>` step per `taps` entry, a 1 kHz tone at
+-20 dBFS clamped into its `args`, and none when `taps` is empty), its
 `expect` the section's `answer.ok`, then its test hooks as above. Any other
 schema is refused.
 

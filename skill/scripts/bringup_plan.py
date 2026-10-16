@@ -18,8 +18,8 @@ issue without /fwe seeing the bench. An ESP32 manifest (fwe-esp32-manifest/1)
 has no fwe console, so its plan is power, flash over the ROM bootloader with
 its boot strap, boot (the ROM's reset line on upstream's console), one nvs:*
 step per setting read back against the manifest, one st:* step per fwe_selftest
-command once its `selftest` section is `ready` (all but `st tone`, whose taps
-the manifest doesn't name), then its test hooks if any.
+command once its `selftest` section is `ready` (`st tone` once per tap, a 1 kHz
+tone at -20 dBFS), then its test hooks if any.
 
   bringup_plan.py --workspace PCB-0018-A_bldc-motor-driver
 
@@ -131,15 +131,32 @@ ST_SUSPECTS = {"rails": "the rail ADC channels and scales in gen/board_pins.h",
                "net": "the network upstream brought up, before the TCP listener started"}
 
 
+# The tone each `st tone` step plays, clamped into the command's ranges.
+TONE_HZ, TONE_DBFS = 1000, -20.0
+
+
+def _tone(c: dict, ok: str) -> list[dict]:
+    lo, hi = c["args"]["hz"]
+    hz = min(max(TONE_HZ, lo), hi)
+    lo, hi = c["args"]["dbfs"]
+    dbfs = min(max(TONE_DBFS, lo), hi)
+    return [{"id": f"st:tone.{t['tap']}", "kind": "unattended",
+             "send": f"st tone {t['tap']} {hz} {dbfs:g}", "expect": ok, "timeout_s": 5,
+             "fwe_suspects": ["fwe_selftest's `tone` handler and the JSON it writes",
+                              f"the line-in ADC's mux setting for {t['tap']} (its pin names are "
+                              f"unchecked in codecs.json) and the loopback it reads from {t['net']}"]}
+            for t in c.get("taps", [])]
+
+
 def _selftest(man: dict) -> list[dict]:
     st = man.get("selftest")
     if not st or not st.get("ready"):
         return []
-    return [{"id": f"st:{c['name']}", "kind": "unattended", "send": c["send"],
-             "expect": st["answer"]["ok"], "timeout_s": 5,
-             "fwe_suspects": [f"fwe_selftest's `{c['name']}` handler and the JSON it writes",
-                              ST_SUSPECTS.get(c["name"], "the board's ops in the selftest glue")]}
-            for c in st["commands"] if "args" not in c]
+    ok = st["answer"]["ok"]
+    return [s for c in st["commands"] for s in (_tone(c, ok) if c["name"] == "tone" else [
+        {"id": f"st:{c['name']}", "kind": "unattended", "send": c["send"], "expect": ok, "timeout_s": 5,
+         "fwe_suspects": [f"fwe_selftest's `{c['name']}` handler and the JSON it writes",
+                          ST_SUSPECTS.get(c["name"], "the board's ops in the selftest glue")]}])]
 
 
 def plan(man: dict) -> dict:
