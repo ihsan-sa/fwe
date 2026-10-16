@@ -152,6 +152,13 @@ that points there as `evidence`, or null for one of the step's `fwe_suspects`),
 `side` (the first finding's) and `rerun_from`, the step /npie starts again
 from once the fix lands.
 
+Each triage is kept as an issue in `firmware/bringup-log.json`
+(`fwe-bringup-log/1`): `board` and `issues`, each with `n` (from 1), `step`,
+`version`, `side`, `suspect` and `evidence` (the first finding's),
+`current_a` and `fix`, the fix that answered it, or null while it is open.
+The same triage read again is not logged twice. `bringup_triage.py --fix N
+TEXT` records a fix and `--open` lists the issues still open.
+
 ## Versioning
 
 `schema` changes its number on any breaking change. Additive keys are
