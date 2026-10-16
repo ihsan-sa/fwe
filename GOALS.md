@@ -79,6 +79,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   kept as `tone_taps` in `pinmap.json` with the named net it reads, and listed under `st tone` in the manifest.
   The dispatch/69 branch adds one `st:tone.<tap>` step per tap to the plan (a 1 kHz tone at -20 dBFS, clamped into
   the command's ranges), its suspects naming the tap's mux setting and the net it reads back.
+  The dispatch/77 branch adds `fwe_st_pcm1863_mux()` to `fwe_selftest`'s `core/`: the PCM1863 page-0 register
+  (ADC1_INPUT_SEL_L or _R) and the single-ended select value for each tap, VINL1 to VINR4 (from memory, unchecked
+  against SLAS831), and -1 for any other tap.
   Left in item 2: the handlers' JSON and the reason
   words checked against npie#19's contract, and the handlers and USB serial/TCP glue.
 

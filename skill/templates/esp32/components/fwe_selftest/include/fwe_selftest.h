@@ -2,6 +2,7 @@
 #define FWE_SELFTEST_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /* The self-test console /npie drives in bring-up (npie-selftest/1): `st rails`, `st pd`,
  * `st tone <tap> <hz> <dBFS>` and `st net`, each answered by one line, `OK {json}` or
@@ -41,5 +42,17 @@ typedef struct {
  * fit, or a handler's JSON that isn't one object on one line, is `ERR` too; out_len must be at
  * least 32. */
 int fwe_selftest_line(const fwe_selftest_ops_t *ops, const char *line, char *out, size_t out_len);
+
+/* The PCM1863's analog mux, which `st tone` sets to read the tone back on a tap. Page 0's
+ * ADC1_INPUT_SEL_L picks one of VINL1-4 and ADC1_INPUT_SEL_R one of VINR1-4, single-ended, one
+ * bit each (bit n-1 for input n), over the register's default upper bits (0x40). From memory
+ * of the PCM186x register map, not yet checked against SLAS831, as the pin names aren't. */
+#define FWE_PCM1863_REG_ADC1_SEL_L 0x06
+#define FWE_PCM1863_REG_ADC1_SEL_R 0x07
+#define FWE_PCM1863_SEL_BASE 0x40
+
+/* The register and value that select tap ("VINL1" to "VINR4", as the manifest's taps name them).
+ * Returns 0, or -1 for a tap that isn't one of the eight, so the handler answers `ERR unknown tap`. */
+int fwe_st_pcm1863_mux(const char *tap, uint8_t *reg, uint8_t *val);
 
 #endif
