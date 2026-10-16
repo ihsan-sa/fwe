@@ -56,6 +56,21 @@ int fwe_settings_patch(fwe_settings_t *s, const char *body, size_t body_len, con
 int fwe_webapp_handle(fwe_settings_t *s, const char *method, const char *path, const char *body,
                       size_t body_len, char *out, size_t out_len, bool *changed);
 
+/* NVS access the glue supplies, one int32 per key in the `fwe` namespace (nvs_get_i32 and
+ * nvs_set_i32). Each returns 0, or nonzero when the key is missing or the access fails. */
+typedef int (*fwe_nvs_get_fn)(void *ctx, const char *key, int32_t *val);
+typedef int (*fwe_nvs_set_fn)(void *ctx, const char *key, int32_t val);
+
+/* Load the settings from NVS: start from the defaults and take each stored key whose value is in
+ * the API's range. A missing key, a failed read or an out-of-range value keeps that default, so a
+ * stale or corrupt NVS never reaches the DSP. `input` is kept as its fwe_input_t number, so new
+ * inputs go at the end. Returns how many keys were taken. */
+int fwe_settings_load(fwe_settings_t *s, fwe_nvs_get_fn get, void *ctx);
+
+/* Write each setting that differs from *old, or all of them when old is NULL. Returns 0, or -1 at
+ * the first failed write (the glue then doesn't commit). */
+int fwe_settings_save(const fwe_settings_t *s, const fwe_settings_t *old, fwe_nvs_set_fn set, void *ctx);
+
 #define FWE_WEBAPP_ST_MAX 63 /* longest st command body POST /api/selftest takes */
 
 /* Handle POST /api/selftest. The body is one npie-selftest/1 command, e.g. `st tone VINL1 1000

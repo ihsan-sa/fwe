@@ -107,8 +107,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   each control posting its one key), and a test that checks its keys, inputs and ranges against the core's tables.
   The dispatch/73 branch adds the self-test route to `core/`: `fwe_webapp_selftest()` takes `POST /api/selftest`
   with one `st` command as its body and answers 200 with `fwe_selftest`'s own `OK {json}` or `ERR <reason>` line,
-  or 400 for a body that isn't one `st` command.
-  Left in item 2: the HTTP server (serving the page, embedded, and both routes) and NVS in the ESP-IDF glue.
+  or 400 for a body that isn't one `st` command. The dispatch/75 branch adds NVS to `core/`: `fwe_settings_load()`
+  and `fwe_settings_save()` read and write each setting through get/set callbacks the glue supplies; a missing or
+  out-of-range stored value keeps its default, and a save writes only what changed.
+  Left in item 2: the HTTP server (serving the page, embedded, and both routes) and the NVS callbacks in the ESP-IDF glue.
 
 ## Closed
 

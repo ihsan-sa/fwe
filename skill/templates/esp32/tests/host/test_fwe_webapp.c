@@ -160,6 +160,81 @@ static void test_selftest_route(void)
     assert(fwe_webapp_selftest(&ops, "POST", "st rails", 8, out, 31) == 500);
 }
 
+/* A fake NVS namespace: up to 16 keys, and a write that fails after `writes_left` writes. */
+typedef struct {
+    char key[16][16];
+    int32_t val[16];
+    int n, writes, writes_left;
+} fake_nvs_t;
+
+static int nvs_get(void *ctx, const char *key, int32_t *val)
+{
+    fake_nvs_t *nvs = ctx;
+    for (int i = 0; i < nvs->n; i++) {
+        if (strcmp(nvs->key[i], key) == 0) {
+            *val = nvs->val[i];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int nvs_set(void *ctx, const char *key, int32_t val)
+{
+    fake_nvs_t *nvs = ctx;
+    if (nvs->writes_left-- <= 0) {
+        return -1;
+    }
+    nvs->writes++;
+    int i = 0;
+    while (i < nvs->n && strcmp(nvs->key[i], key) != 0) {
+        i++;
+    }
+    assert(i < 16 && strlen(key) <= 15);   /* NVS keys are at most 15 characters */
+    if (i == nvs->n) {
+        strcpy(nvs->key[nvs->n++], key);
+    }
+    nvs->val[i] = val;
+    return 0;
+}
+
+static void test_nvs_load_and_save(void)
+{
+    fake_nvs_t nvs = {.writes_left = 100};
+    fwe_settings_t s, back, def;
+    char out[512], again[512];
+    bool changed;
+    fwe_settings_default(&def);
+    /* an empty namespace loads the defaults */
+    assert(fwe_settings_load(&back, nvs_get, &nvs) == 0);
+    assert(fwe_settings_json(&back, out, sizeof out) > 0 && strcmp(out, DEFAULTS) == 0);
+    /* a full save writes every key, and loading it back gives the same settings */
+    fwe_settings_default(&s);
+    assert(post(&s, "{\"input\":\"airplay\",\"volume_mb\":-900,\"mid_mb\":-300,\"xover_hz\":110,"
+                    "\"sub1_level_mb\":-600,\"sub2_delay_us\":4500}", out, sizeof out, &changed) == 200);
+    assert(fwe_settings_save(&s, NULL, nvs_set, &nvs) == 0 && nvs.writes == 10 && nvs.n == 10);
+    assert(fwe_settings_load(&back, nvs_get, &nvs) == 10);
+    assert(fwe_settings_json(&back, again, sizeof again) > 0 && strcmp(out, again) == 0);
+    /* saving against the old settings writes only what changed */
+    fwe_settings_t before = s;
+    nvs.writes = 0;
+    assert(post(&s, "{\"treble_mb\":600,\"input\":\"airplay\"}", out, sizeof out, &changed) == 200);
+    assert(fwe_settings_save(&s, &before, nvs_set, &nvs) == 0 && nvs.writes == 1);
+    assert(fwe_settings_save(&s, &s, nvs_set, &nvs) == 0 && nvs.writes == 1);
+    /* a stored value out of the API's range keeps its default, and the rest still load */
+    nvs_set(&nvs, "input", FWE_INPUT_COUNT);
+    nvs_set(&nvs, "xover_hz", 20);
+    nvs_set(&nvs, "volume_mb", 1);
+    nvs_set(&nvs, "sub1_delay_us", -1);
+    assert(fwe_settings_load(&back, nvs_get, &nvs) == 6);
+    assert(back.input == def.input && back.xover_hz == def.xover_hz && back.volume_mb == def.volume_mb);
+    assert(back.sub_delay_us[0] == 0 && back.eq_mb[FWE_EQ_TREBLE] == 600 && back.sub_delay_us[1] == 4500);
+    /* a failed write stops the save */
+    nvs.writes_left = 3;
+    nvs.writes = 0;
+    assert(fwe_settings_save(&s, NULL, nvs_set, &nvs) == -1 && nvs.writes == 3);
+}
+
 int main(void)
 {
     test_get_answers_the_defaults();
@@ -167,6 +242,7 @@ int main(void)
     test_post_refuses_bad_bodies();
     test_other_requests();
     test_selftest_route();
+    test_nvs_load_and_save();
     printf("fwe_webapp: ok\n");
     return 0;
 }

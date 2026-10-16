@@ -223,6 +223,38 @@ static bool settings_equal(const fwe_settings_t *a, const fwe_settings_t *b)
     return true;
 }
 
+int fwe_settings_load(fwe_settings_t *s, fwe_nvs_get_fn get, void *ctx)
+{
+    int taken = 0;
+    int32_t v;
+    fwe_settings_default(s);
+    if (get(ctx, "input", &v) == 0 && v >= 0 && v < FWE_INPUT_COUNT) {
+        s->input = (fwe_input_t)v;
+        taken++;
+    }
+    for (int f = 0; f < F_COUNT; f++) {
+        if (get(ctx, FIELDS[f].key, &v) == 0 && v >= FIELDS[f].min && v <= FIELDS[f].max) {
+            set_field(s, f, v);
+            taken++;
+        }
+    }
+    return taken;
+}
+
+int fwe_settings_save(const fwe_settings_t *s, const fwe_settings_t *old, fwe_nvs_set_fn set, void *ctx)
+{
+    if ((old == NULL || old->input != s->input) && set(ctx, "input", (int32_t)s->input) != 0) {
+        return -1;
+    }
+    for (int f = 0; f < F_COUNT; f++) {
+        int32_t v = get_field(s, f);
+        if ((old == NULL || get_field(old, f) != v) && set(ctx, FIELDS[f].key, v) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int answer_error(char *out, size_t out_len, int status, const char *msg)
 {
     int n = snprintf(out, out_len, "{\"error\":\"%s\"}", msg);
