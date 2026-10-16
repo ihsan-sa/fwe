@@ -4,6 +4,26 @@
 [hwde](https://github.com/ihsan-sa/hwde). The board's netlist decides every pin, and each target builds with warnings as
 errors, runs host unit tests and boots in a simulator where one exists.
 
+## Standing goals (the owner's words)
+
+These are the owner's own direction for fwe, quoted as he said them. Only he adds, changes or drops one; a run reads
+them and works toward them, and proposes the next step under Proposed goals below.
+
+### FWE writes and debugs the firmware, and plans bring-up with NPIE
+
+- **Said:** 2026-10-16 01:55 EDT, #iiks1-architect-autobox2-uxnu, slack:C0C8XQZ9JR0/1792130142.854639
+- **His words:** "also the goal of FWE is to write FW based on HW,, advise HWDE on how to configure MCUs, write the FW and
+  debug it, and make plans for NPIE to carry out the bringup where NPIE and FWE work together to find and fix issues
+  during bringup"
+- **What that means:** fwe starts from the board hwde designed and writes the firmware for it. It also works upstream
+  of the board: it tells hwde how each MCU should be configured (pins, clocks, boot straps, debug access) while the
+  board is still being drawn. Once the firmware builds, fwe debugs it, and it writes a bring-up plan that npie carries
+  out on the real board. During bring-up the two work as a pair: npie reports what the board does, and fwe finds and
+  fixes the firmware side of each issue.
+- **Done when:** this is standing direction, so it is never closed. A board meets it when hwde has fwe's MCU advice
+  before layout, its firmware builds and passes its tests, npie has a bring-up plan from fwe, and the issues found in
+  bring-up are fixed on the firmware side.
+
 ## Proposed goals
 
 Each goal says what to build, which files it touches and how to tell it is done. At most three are open at once, and
