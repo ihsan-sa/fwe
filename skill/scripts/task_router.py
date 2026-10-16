@@ -8,8 +8,8 @@ reference/recipes/<verb>.md, which the session reads before executing.
 A task that names an FPGA (fpga, gateware, verilog, rtl, bitstream, serdes,
 yosys, nextpnr, cocotb) matches only the `fpga-*` verbs; one that names the
 ESP32 (esp32, esp-idf, idf.py, squeezelite, wrover) only the `esp32-*` verbs;
-any other task matches only the MCU verbs. `advise` is both an MCU and an
-ESP32 verb.
+any other task matches only the MCU verbs. `advise` and `triage` are both MCU
+and ESP32 verbs.
 
   task_router.py --task "build the firmware" --workspace PCB-0018-A_bldc-motor-driver
   task_router.py --verb test --workspace <board>
@@ -84,6 +84,13 @@ VERBS = {
         "summary": "advise hwde on the MCU's debug, reset, boot straps and clocks from the draft netlist: "
                    "firmware/mcu-advice.json",
         "steps": ["mcu_advice.py --workspace {ws}"],
+    },
+    "triage": {
+        "targets": ("mcu", "esp32"),
+        "match": [r"\btriage\b", r"\b(failed|failing) (bring.?up )?step\b", r"\bbring.?up (report|failure)\b"],
+        "summary": "read /npie's report of a failed bring-up step (firmware/bringup-report.json) against the plan: "
+                   "firmware/bringup-triage.json, which side the issue is on and where to look",
+        "steps": ["bringup_triage.py --workspace {ws}"],
     },
     "stage": {
         "match": [r"\b(stage|six.?step|foc|commutat\w*|bring.?up firmware|add (a )?command)\b"],

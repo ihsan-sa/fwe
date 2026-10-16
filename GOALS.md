@@ -102,7 +102,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
      an ESP32 fixture is the Done when.
   3. Each triage and the fix that answered it kept in `firmware/bringup-log.json`, so a board's open bring-up issues
      can be listed.
-- **Pull requests:** the dispatch/49 branch did item 1, with tests on fixture STM32 and ESP32 plans.
+- **Pull requests:** [#50](https://github.com/ihsan-sa/fwe/pull/50) did item 1, with tests on fixture STM32 and ESP32
+  plans. The dispatch/51 branch did item 2: the `triage` verb (`targets: mcu, esp32`) and `recipes/triage.md`, the
+  report saved as `firmware/bringup-report.json` (the script's default `--report`), both schemas in `manifest.md`, and
+  both bring-up recipes pointing at it. Left: item 3, `firmware/bringup-log.json`.
 
 ## Closed
 

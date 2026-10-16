@@ -19,6 +19,9 @@ starts again from once the fix lands.
 
   bringup_triage.py --workspace PCB-0029-A_hifi --report npie-report.json
 
+--report defaults to firmware/bringup-report.json, where /npie's report is
+saved, so the router's `triage` verb needs only the workspace.
+
 JSON to stdout (or --out): {"ok", "path", "triage"}. Exit 0 written, 1 no plan
 (run bringup_plan.py first), 2 error (a report this can't read, or a step the
 plan doesn't have).
@@ -38,6 +41,7 @@ from fwelib import fwenv  # noqa: E402
 SCHEMA = "fwe-bringup-triage/1"
 REPORT = "fwe-bringup-report/1"
 NAME = "bringup-triage.json"
+REPORT_NAME = "bringup-report.json"
 PLAN = "bringup-plan.json"
 HWDE = "finding for hwde"
 
@@ -141,7 +145,7 @@ def triage(plan: dict, rep: dict) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--workspace", required=True, help="board workspace (path, or name under boards root)")
-    ap.add_argument("--report", required=True, help="/npie's report (fwe-bringup-report/1)")
+    ap.add_argument("--report", help=f"/npie's report (fwe-bringup-report/1); default firmware/{REPORT_NAME}")
     ap.add_argument("--out", help="write the JSON result here instead of stdout")
     a = ap.parse_args(argv)
     fw = fwenv.workspace(a.workspace) / "firmware"
@@ -151,7 +155,7 @@ def main(argv=None) -> int:
         return 1
     try:
         t = triage(json.loads(src.read_text(encoding="utf-8")),
-                   json.loads(Path(a.report).read_text(encoding="utf-8")))
+                   json.loads(Path(a.report or fw / REPORT_NAME).read_text(encoding="utf-8")))
     except (Error, ValueError, OSError, KeyError) as e:
         fwenv.emit({"ok": False, "error": str(e)}, a.out)
         return 2

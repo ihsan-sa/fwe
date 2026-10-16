@@ -139,6 +139,19 @@ ESP-IDF's first `I (…)` log line, on upstream's console), then one
 upstream's console and compared verbatim with `expect`, then its test hooks
 as above. Any other schema is refused.
 
+### The failure report and its triage
+
+/npie's report of the step that failed is `fwe-bringup-report/1`, saved as
+`firmware/bringup-report.json`: `board` (the plan's), `step` (a plan step id),
+`lines` (the console lines it saw, oldest first) and `current_a` (the supply
+current, or null). `scripts/bringup_triage.py` reads it against the plan and
+writes `firmware/bringup-triage.json` (`fwe-bringup-triage/1`): `board`,
+`stage`, `version`, `step`, `current_a`, `findings` (each a `side`, `firmware`,
+`hardware` (a finding for hwde) or `bench`; a `suspect`; and the console line
+that points there as `evidence`, or null for one of the step's `fwe_suspects`),
+`side` (the first finding's) and `rerun_from`, the step /npie starts again
+from once the fix lands.
+
 ## Versioning
 
 `schema` changes its number on any breaking change. Additive keys are
