@@ -130,3 +130,13 @@ int fwe_selftest_line(const fwe_selftest_ops_t *ops, const char *line, char *out
     int n = fn(ops->ctx, out + 3, out_len - 5, &err);
     return answer_ok(n, err, out, out_len);
 }
+
+int fwe_st_pcm1863_mux(const char *tap, uint8_t *reg, uint8_t *val)
+{
+    if (!tap || strncmp(tap, "VIN", 3) != 0 || (tap[3] != 'L' && tap[3] != 'R') || tap[4] < '1' ||
+        tap[4] > '4' || tap[5] != '\0')
+        return -1;
+    *reg = tap[3] == 'L' ? FWE_PCM1863_REG_ADC1_SEL_L : FWE_PCM1863_REG_ADC1_SEL_R;
+    *val = (uint8_t)(FWE_PCM1863_SEL_BASE | (1u << (tap[4] - '1')));
+    return 0;
+}

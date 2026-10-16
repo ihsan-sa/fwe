@@ -121,12 +121,35 @@ static void test_handler_failures_answer_err(void)
     assert(strncmp(ask(&OPS, "st rails"), "OK {aaa", 7) == 0 && strlen(out) == sizeof out - 2);
 }
 
+static void test_pcm1863_mux_selects_each_tap(void)
+{
+    static const struct {
+        const char *tap;
+        uint8_t reg, val;
+    } want[] = {{"VINL1", 0x06, 0x41}, {"VINL2", 0x06, 0x42}, {"VINL3", 0x06, 0x44}, {"VINL4", 0x06, 0x48},
+                {"VINR1", 0x07, 0x41}, {"VINR2", 0x07, 0x42}, {"VINR3", 0x07, 0x44}, {"VINR4", 0x07, 0x48}};
+    uint8_t reg, val;
+    for (size_t i = 0; i < sizeof want / sizeof want[0]; i++) {
+        reg = val = 0;
+        assert(fwe_st_pcm1863_mux(want[i].tap, &reg, &val) == 0);
+        assert(reg == want[i].reg && val == want[i].val);
+    }
+    /* anything else is an unknown tap, and leaves reg and val alone */
+    static const char *bad[] = {"VINL0", "VINL5", "VINX1", "vinl1", "VINL1x", "VINL", "", "dac_l"};
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        reg = val = 0xEE;
+        assert(fwe_st_pcm1863_mux(bad[i], &reg, &val) == -1 && reg == 0xEE && val == 0xEE);
+    }
+    assert(fwe_st_pcm1863_mux(NULL, &reg, &val) == -1);
+}
+
 int main(void)
 {
     test_each_command_answers_ok_with_the_handlers_json();
     test_other_lines_are_not_ours();
     test_bad_lines_answer_err();
     test_handler_failures_answer_err();
+    test_pcm1863_mux_selects_each_tap();
     printf("fwe_selftest: ok\n");
     return 0;
 }
