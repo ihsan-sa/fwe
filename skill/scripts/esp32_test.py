@@ -4,7 +4,7 @@
 Each tests/host/test_*.c in the board's firmware is compiled with the host
 gcc (or clang) against every components/fwe_*/core/*.c (the logic that needs no
 ESP-IDF), the components' include/ dirs and firmware/gen/, with -Wall
--Wextra -Werror, then run. A test passes when it exits 0. Upstream squeezelite-esp32 is never
+-Wextra -Werror and libm, then run. A test passes when it exits 0. Upstream squeezelite-esp32 is never
 built here.
 
   esp32_test.py --workspace PCB-0029-A_hifi-lite
@@ -56,7 +56,7 @@ def run(fw: Path) -> tuple[int, dict]:
     with tempfile.TemporaryDirectory() as tmp:
         for t in tests:
             exe = Path(tmp) / t.stem
-            p = subprocess.run([cc, *FLAGS, *incs, str(t), *core, "-o", str(exe)],
+            p = subprocess.run([cc, *FLAGS, *incs, str(t), *core, "-lm", "-o", str(exe)],
                                capture_output=True, text=True)
             if p.returncode:
                 out.append({"name": t.stem, "ok": False, "output": ("build: " + p.stderr)[-1500:]})

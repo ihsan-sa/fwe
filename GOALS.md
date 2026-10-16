@@ -84,9 +84,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   other.
 - **Pull requests:** [#25](https://github.com/ihsan-sa/fwe/pull/25) starts item 1: `fwe_pd_limit`'s `core/` (CH224A
   register decode, the 28 V EPR, 20 V fallback and 5 V cases, the volume cap) and its host test. Left in item 1: the
-  ESP-IDF glue (CH224A I2C read, rail ADC, applying the cap). The dispatch/29 branch does item 3's table: TPA3255,
-  ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their addresses unchecked), with
-  pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
+  ESP-IDF glue (CH224A I2C read, rail ADC, applying the cap). [#30](https://github.com/ihsan-sa/fwe/pull/30) did
+  item 3's table: TPA3255, ES9018K2M and TAS5825P in `codecs.json` (the two I2C parts `verified: false`, their
+  addresses unchecked), with pinmap tests on a Max and a Lite fixture. Left in item 3: their init sequences, from the datasheets.
 
 ### Add the hi-fi sub crossover DSP and phone web app
 
@@ -103,7 +103,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 - **Fixtures:** as above, the tests use fixture netlists for the hi-fi boards.
 - **Done when:** `make check` passes, including host tests for the crossover coefficients and the API's request
   handling and a fixture build of both components, and the pull request is merged.
-- **Pull requests:** none yet.
+- **Pull requests:** the dispatch/31 branch starts item 1: `fwe_xover`'s `core/` (LR4 low and high pass
+  coefficients from 40 to 200 Hz, a per-sample filter step, each sub's level and delay) and its host test, which checks
+  -6 dB at the crossover, -24.6 dB an octave out and a flat sum. Left in item 1: the second I2S port and the delay line
+  in the ESP-IDF glue.
 
 ## Closed
 
