@@ -34,6 +34,12 @@ typedef struct {
  * don't handle. */
 int fwe_pd_decode_ch224a(uint8_t status, uint8_t vsel, uint8_t imax, fwe_pd_contract_t *out);
 
+/* The rail current from one calibrated ADC reading, scaled by the RAIL_ISNS_REF_V and
+ * RAIL_ISNS_V_PER_A that pinmap writes to board_pins.h: (adc_mv - ref) / V-per-A, rounded, 0
+ * below the reference. A scale that isn't positive returns UINT32_MAX, so the limiter drops
+ * to its floor rather than trusting it. */
+uint32_t fwe_pd_rail_ma(int32_t adc_mv, float ref_v, float v_per_a);
+
 /* Start the limiter on a contract: the amplifier is on only at FWE_PD_MIN_AMP_MV or more, and
  * the budget is 90% of the contract current. */
 void fwe_pd_limit_init(fwe_pd_limit_t *st, const fwe_pd_contract_t *contract);
