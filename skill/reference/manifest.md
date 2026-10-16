@@ -208,3 +208,22 @@ ordering code and are null when it has none. `firmware.upstream_commit` is what 
 built; it differs from `pinned_commit` only if the build ran before a lock change was
 taken up. `nvs.namespaces` is what the pin map wrote, so /npie can compare it with what
 the board reports.
+
+A board with our `fwe_selftest` component also has a `selftest` section, the console
+/npie drives in bring-up (`npie-selftest/1`). Each `send` line gets one answer line,
+matching `answer.ok` (`OK {json}`) or `answer.err` (`ERR <reason>`). `st tone`'s `args`
+are its tap pattern and its `hz` and `dbfs` ranges, inclusive, read from the
+component's header. `ready` is false while the component is only its `core/` (no
+handlers, no USB serial or TCP glue), and /npie sends no `st` line until it is true.
+
+```json
+"selftest": {
+  "protocol": "npie-selftest/1", "component": "fwe_selftest",
+  "commands": [{"name": "rails", "send": "st rails"}, {"name": "pd", "send": "st pd"},
+               {"name": "tone", "send": "st tone <tap> <hz> <dBFS>",
+                "args": {"tap": "^[A-Za-z0-9_]{1,15}$", "hz": [20, 20000], "dbfs": [-60.0, 0.0]}},
+               {"name": "net", "send": "st net"}],
+  "answer": {"ok": "^OK \\{", "err": "^ERR "},
+  "ready": false
+}
+```
