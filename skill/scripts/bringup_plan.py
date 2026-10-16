@@ -73,9 +73,12 @@ def _boot(man: dict) -> dict:
 
 
 def _hook(h: dict) -> dict:
+    verb = h["send"].split()
+    if not verb:
+        raise Error(f"test hook {h['name']!r} sends nothing")
     return {"id": f"hook:{h['name']}", "kind": "unattended", "send": h["send"],
             "expect": h["expect"], "timeout_s": h["timeout_s"], "needs": h.get("needs", []),
-            "fwe_suspects": [f"the console handler for `{h['send'].split()[0]}`"]}
+            "fwe_suspects": [f"the console handler for `{verb[0]}`"]}
 
 
 def _confirm(c: dict, safety: dict) -> dict:
@@ -86,15 +89,18 @@ def _confirm(c: dict, safety: dict) -> dict:
 
 
 def plan(man: dict) -> dict:
+    if not isinstance(man, dict):
+        raise Error(f"manifest is a JSON {type(man).__name__}, not an object")
     if man.get("schema") != "fwe-manifest/1":
         raise Error(f"can't plan a {man.get('schema')!r} manifest yet: only fwe-manifest/1")
     try:
+        board = man["board"]
         steps = [_power(man), _flash(man), _boot(man)]
         steps += [_hook(h) for h in man.get("test_hooks", [])]
         steps += [_confirm(c, man.get("safety", {})) for c in man.get("commands", []) if not c["safe"]]
     except KeyError as e:
         raise Error(f"manifest has no {e}") from e
-    return {"schema": SCHEMA, "board": man["board"], "stage": man.get("stage"),
+    return {"schema": SCHEMA, "board": board, "stage": man.get("stage"),
             "version": man.get("version"), "verified": man.get("verified", {}),
             "on_fail": {"stop": True, "report": REPORT}, "steps": steps}
 

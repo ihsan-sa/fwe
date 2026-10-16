@@ -118,8 +118,8 @@ What has landed so far, from the git history:
 - A `swo` role in the pin map for the SWO trace pin (#8).
 - A required check job and a `make check` target (#9).
 - An ESP32 (ESP-IDF) target for squeezelite-esp32 boards (#10).
-- Fix the review findings from #10. **Status:** done. All eight follow-ups in
+- Fix the review findings from #10. All eight follow-ups in
   [issue #11](https://github.com/ihsan-sa/fwe/issues/11) landed with tests: C3/S3 parts refused (#14), the platform
   and `sdkconfig.fwe` hash kept in `fwe_build.json` (#16), build timeouts, flash-args and "IDF missing" tests (#18),
-  uv checked before cloning ESP-IDF and the recipe's exit wording (#21), the AK4493S straps and SMUTE (#23). The
-  dispatch/37 pull request closes #11; ticking its boxes is the owner's.
+  uv checked before cloning ESP-IDF and the recipe's exit wording (#21), the AK4493S straps and SMUTE (#23). Its Done
+  when (#11's boxes ticked and #11 closed) is the owner's to meet; no run's pull request closes #11.

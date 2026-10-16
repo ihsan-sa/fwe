@@ -72,3 +72,23 @@ def test_plan_needs_a_manifest_and_refuses_one_it_cannot_plan(tmp_path):
     assert rc == 2 and "fwe-esp32-manifest/1" in res["error"]
     rc, res = _run(tmp_path / "c", {k: v for k, v in MANIFEST.items() if k != "uart"})
     assert rc == 2 and "uart" in res["error"]
+    rc, res = _run(tmp_path / "d", {k: v for k, v in MANIFEST.items() if k != "board"})
+    assert rc == 2 and "board" in res["error"]
+    rc, res = _run(tmp_path / "e", [MANIFEST])
+    assert rc == 2 and "not an object" in res["error"]
+    hooks = [{**MANIFEST["test_hooks"][0], "send": " "}]
+    rc, res = _run(tmp_path / "f", {**MANIFEST, "test_hooks": hooks})
+    assert rc == 2 and "sends nothing" in res["error"]
+
+
+def test_plan_without_safety_or_test_hooks(tmp_path):
+    rc, res = _run(tmp_path / "a", {k: v for k, v in MANIFEST.items() if k != "safety"})
+    assert rc == 0
+    steps = res["plan"]["steps"]
+    assert "VBUS" not in steps[0]["do"]
+    assert [s["limits"] for s in steps if s["kind"] == "confirm"] == [{}, {}]
+    rc, res = _run(tmp_path / "b", {k: v for k, v in MANIFEST.items() if k != "test_hooks"})
+    assert rc == 0
+    steps = res["plan"]["steps"]
+    assert [s["id"] for s in steps] == ["power", "flash", "boot", "cmd:arm", "cmd:duty"]
+    assert steps[0]["rails"] == []
