@@ -45,8 +45,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
 - **Done when:** `python -m pytest -q tests/test_bringup_plan.py -k "esp32 or router"` passes (it fails while no such
   test exists), as part of `make check`, and the pull request is merged.
 - **Status:** open
-- **Pull requests:** the dispatch/37 branch does item 1 (`bringup_plan.py` for `fwe-manifest/1`, tested on a fixture
-  manifest).
+- **Pull requests:** [#38](https://github.com/ihsan-sa/fwe/pull/38) did item 1 (`bringup_plan.py` for `fwe-manifest/1`,
+  tested on a fixture manifest). The dispatch/39 branch does item 2 for what an ESP32 manifest has today (power,
+  ROM-bootloader flash with its strap, the ROM's reset line, one NVS readback per setting, its test hooks); the
+  `fwe_selftest` steps come with that component's manifest section. Left: item 3, the `bringup` router verb.
 
 ### Add the hi-fi USB-PD power limiter, self-test console and codec picks
 

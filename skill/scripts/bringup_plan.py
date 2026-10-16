@@ -15,7 +15,9 @@ the first that fails and reports it back:
 Every step says what /npie sends back (`report`) and where /fwe looks first
 when it fails (`fwe_suspects`), so the two can find the firmware side of an
 issue without /fwe seeing the bench. An ESP32 manifest (fwe-esp32-manifest/1)
-is refused for now: it has no fwe console to plan against yet.
+has no fwe console, so its plan is power, flash over the ROM bootloader with
+its boot strap, boot (the ROM's reset line on upstream's console), one nvs:*
+step per setting read back against the manifest, then its test hooks if any.
 
   bringup_plan.py --workspace PCB-0018-A_bldc-motor-driver
 
@@ -88,14 +90,51 @@ def _confirm(c: dict, safety: dict) -> dict:
             "fwe_suspects": [f"the console handler for `{c['name']}` and the limits it enforces"]}
 
 
+def _esp32_flash(man: dict) -> dict:
+    f = man["flash"]
+    return {"id": "flash", "kind": "unattended", "interface": f["interface"],
+            "boot_strap": f["boot_strap"], "uart": {"tx_gpio": f["tx_gpio"], "rx_gpio": f["rx_gpio"]},
+            "command": f["command"], "sha256": {i["name"]: i["sha256"] for i in man["images"]},
+            "expect": "esptool connects to the ROM bootloader, writes and verifies every image",
+            "fwe_suspects": ["the flash mode, frequency and size in the esptool command against "
+                             f"the {man['mcu']['part']}",
+                             "an image's offset against upstream's partition table",
+                             "a strap or auto-reset circuit that misses the boot strap is hardware, "
+                             "a finding for hwde"]}
+
+
+def _esp32_boot(man: dict) -> dict:
+    c = man["console"]
+    return {"id": "boot", "kind": "unattended",
+            "uart": {k: c[k] for k in ("tx_gpio", "rx_gpio", "baud", "format", "levels")},
+            "expect": [r"^rst:0x[0-9a-f]+ \(", r"^I \(\d+\) "], "timeout_s": 10,
+            "fwe_suspects": ["a boot strap still held: boot:0x3 in the rst line is download mode",
+                             f"the PSRAM setting against the module ({man['mcu'].get('psram_mb')} MB)",
+                             "the bootloader or partition table image (report the rst line verbatim)"]}
+
+
+def _nvs(man: dict) -> list[dict]:
+    nvs = man["nvs"]
+    return [{"id": f"nvs:{ns}.{key}", "kind": "unattended", "partition": nvs["partition"],
+             "namespace": ns, "key": key, "expect": value,
+             "do": "read the key back over upstream's console and compare it verbatim",
+             "fwe_suspects": [f"the {ns}.{key} row of {nvs['csv']}, which pinmap.py wrote",
+                              "the nvs_config image's offset against the settings partition"]}
+            for ns, keys in nvs["namespaces"].items() for key, value in keys.items()]
+
+
 def plan(man: dict) -> dict:
     if not isinstance(man, dict):
         raise Error(f"manifest is a JSON {type(man).__name__}, not an object")
-    if man.get("schema") != "fwe-manifest/1":
-        raise Error(f"can't plan a {man.get('schema')!r} manifest yet: only fwe-manifest/1")
+    schema = man.get("schema")
+    if schema not in ("fwe-manifest/1", "fwe-esp32-manifest/1"):
+        raise Error(f"can't plan a {schema!r} manifest: only fwe-manifest/1 and fwe-esp32-manifest/1")
     try:
         board = man["board"]
-        steps = [_power(man), _flash(man), _boot(man)]
+        if schema == "fwe-esp32-manifest/1":
+            steps = [_power(man), _esp32_flash(man), _esp32_boot(man)] + _nvs(man)
+        else:
+            steps = [_power(man), _flash(man), _boot(man)]
         steps += [_hook(h) for h in man.get("test_hooks", [])]
         steps += [_confirm(c, man.get("safety", {})) for c in man.get("commands", []) if not c["safe"]]
     except KeyError as e:
