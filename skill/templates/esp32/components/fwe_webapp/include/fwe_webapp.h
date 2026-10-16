@@ -5,11 +5,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "fwe_selftest.h"
+
 /* The phone web app's API: the settings it shows and changes (input, volume, EQ, the sub
  * crossover) and the request handling for GET and POST /api/settings. All of it is pure logic
  * (core/), tested on the host; the HTTP server, the app's page and the NVS writes are the
  * ESP-IDF side's job. Each JSON key is also the setting's NVS key in the `fwe` namespace, so
- * none is over NVS's 15 characters. */
+ * none is over NVS's 15 characters. The self-test route hands its body to fwe_selftest's core. */
 
 #define FWE_WEBAPP_SUBS 2
 #define FWE_WEBAPP_MIN_VOLUME_MB (-6000) /* volume, in millibels, up to 0 */
@@ -53,5 +55,15 @@ int fwe_settings_patch(fwe_settings_t *s, const char *body, size_t body_len, con
  * small. */
 int fwe_webapp_handle(fwe_settings_t *s, const char *method, const char *path, const char *body,
                       size_t body_len, char *out, size_t out_len, bool *changed);
+
+#define FWE_WEBAPP_ST_MAX 63 /* longest st command body POST /api/selftest takes */
+
+/* Handle POST /api/selftest. The body is one npie-selftest/1 command, e.g. `st tone VINL1 1000
+ * -20`, run by fwe_selftest_line with the board's ops. Returns the HTTP status: 200 with the
+ * console's own answer line (`OK {json}` or `ERR <reason>`, ending in "\n", text/plain) in out,
+ * the same line serial and TCP give; 400 with {"error":...} for a body that isn't one st
+ * command; 405 for another method; or 500 when out_len is under 32. */
+int fwe_webapp_selftest(const fwe_selftest_ops_t *ops, const char *method, const char *body,
+                        size_t body_len, char *out, size_t out_len);
 
 #endif

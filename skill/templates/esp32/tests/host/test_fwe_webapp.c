@@ -4,6 +4,20 @@
 
 #include "fwe_webapp.h"
 
+static int fake_rails(void *ctx, char *out, size_t len, const char **err)
+{
+    (void)ctx;
+    (void)err;
+    return snprintf(out, len, "{\"vbus_mv\":20000}");
+}
+
+static int fake_tone(void *ctx, const fwe_st_tone_t *tone, char *out, size_t len, const char **err)
+{
+    *(fwe_st_tone_t *)ctx = *tone;
+    (void)err;
+    return snprintf(out, len, "{\"thd_pct\":0.01}");
+}
+
 #define DEFAULTS "{\"input\":\"lms\",\"volume_mb\":-2000,\"bass_mb\":0,\"mid_mb\":0,\"treble_mb\":0," \
                  "\"xover_hz\":80,\"sub1_level_mb\":0,\"sub1_delay_us\":0,\"sub2_level_mb\":0,\"sub2_delay_us\":0}"
 
@@ -109,12 +123,50 @@ static void test_other_requests(void)
     assert(fwe_settings_json(&s, out, sizeof out) == -1);
 }
 
+static int st(const fwe_selftest_ops_t *ops, const char *body, char *out, size_t len)
+{
+    return fwe_webapp_selftest(ops, "POST", body, strlen(body), out, len);
+}
+
+static void test_selftest_route(void)
+{
+    fwe_st_tone_t tone = {0};
+    fwe_selftest_ops_t ops = {.rails = fake_rails, .tone = fake_tone, .ctx = &tone};
+    char out[128];
+    /* the console's own line, as serial and TCP answer it */
+    assert(st(&ops, "st rails", out, sizeof out) == 200);
+    assert(strcmp(out, "OK {\"vbus_mv\":20000}\n") == 0);
+    assert(st(&ops, "st tone VINL1 1000 -20\r\n", out, sizeof out) == 200);
+    assert(strcmp(out, "OK {\"thd_pct\":0.01}\n") == 0);
+    assert(strcmp(tone.tap, "VINL1") == 0 && tone.hz == 1000 && tone.dbfs == -20.0);
+    /* a command the board doesn't support, or bad arguments, is still the console's ERR line */
+    assert(st(&ops, "st pd", out, sizeof out) == 200 && strcmp(out, "ERR not supported\n") == 0);
+    assert(st(&ops, "st tone VINL1 5 -20", out, sizeof out) == 200 && strncmp(out, "ERR bad hz", 10) == 0);
+    /* a body that isn't an st command */
+    assert(st(&ops, "", out, sizeof out) == 400 && strcmp(out, "{\"error\":\"not an st command\"}") == 0);
+    assert(st(&ops, "reboot", out, sizeof out) == 400);
+    assert(fwe_webapp_selftest(&ops, "POST", "st rails\0x", 10, out, sizeof out) == 400);
+    char big[FWE_WEBAPP_ST_MAX + 2];
+    memset(big, ' ', sizeof big - 1);
+    memcpy(big, "st rails", 8);
+    big[sizeof big - 1] = '\0';
+    assert(st(&ops, big, out, sizeof out) == 400 && strcmp(out, "{\"error\":\"body too long\"}") == 0);
+    big[sizeof big - 2] = '\0';  /* FWE_WEBAPP_ST_MAX exactly is in */
+    assert(st(&ops, big, out, sizeof out) == 200);
+    /* the body is bounded by its length, not a NUL */
+    assert(fwe_webapp_selftest(&ops, "POST", "st railsjunk", 8, out, sizeof out) == 200);
+    assert(strncmp(out, "OK ", 3) == 0);
+    assert(fwe_webapp_selftest(&ops, "GET", NULL, 0, out, sizeof out) == 405);
+    assert(fwe_webapp_selftest(&ops, "POST", "st rails", 8, out, 31) == 500);
+}
+
 int main(void)
 {
     test_get_answers_the_defaults();
     test_post_changes_only_what_it_names();
     test_post_refuses_bad_bodies();
     test_other_requests();
+    test_selftest_route();
     printf("fwe_webapp: ok\n");
     return 0;
 }

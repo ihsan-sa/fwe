@@ -105,8 +105,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   `/api/settings` with all-or-nothing range checks on a flat JSON body, keys that double as NVS keys) and its host
   test. The dispatch/63 branch adds the page, `fwe_webapp/page/index.html` (input, volume, EQ and the sub settings,
   each control posting its one key), and a test that checks its keys, inputs and ranges against the core's tables.
-  Left in item 2: the HTTP server (serving the page, embedded, and the API), NVS and the self-test route in the
-  ESP-IDF glue.
+  The dispatch/73 branch adds the self-test route to `core/`: `fwe_webapp_selftest()` takes `POST /api/selftest`
+  with one `st` command as its body and answers 200 with `fwe_selftest`'s own `OK {json}` or `ERR <reason>` line,
+  or 400 for a body that isn't one `st` command.
+  Left in item 2: the HTTP server (serving the page, embedded, and both routes) and NVS in the ESP-IDF glue.
 
 ## Closed
 
