@@ -82,6 +82,9 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   The dispatch/77 branch adds `fwe_st_pcm1863_mux()` to `fwe_selftest`'s `core/`: the PCM1863 page-0 register
   (ADC1_INPUT_SEL_L or _R) and the single-ended select value for each tap, VINL1 to VINR4 (from memory, unchecked
   against SLAS831), and -1 for any other tap.
+  The dispatch/79 branch adds `st tone`'s signal math to `core/`: `fwe_st_tone_fill()` writes the tone's 32-bit
+  samples, continuous across DMA buffers, and `fwe_st_tone_level()` reads the dBFS of the tone's frequency back from
+  the PCM1863's capture (a Hann window and a Goertzel at that frequency, silence at a -150 dBFS floor).
   Left in item 2: the handlers' JSON and the reason
   words checked against npie#19's contract, and the handlers and USB serial/TCP glue.
 
