@@ -1,5 +1,5 @@
 {
-  "comment": "Audio parts the ESP32 pin map recognises on a squeezelite-esp32 board, by part-number prefix. kind: dac (I2S out), amp, adc (I2S in), phy, display. model is squeezelite-esp32's dac_config model; i2c parts carry the 7-bit addresses their address pins can strap, indexed by the strap code (CAD1 CAD0 = 10 is the third) and the register writes squeezelite sends through dac_controlset (init, poweron, poweroff: [reg, val] pairs, decimal register numbers). A part whose sequence is not checked against its datasheet has verified false, and pinmap reports it as a finding rather than flashing an unchecked sequence as if it were known. active overrides a control pin's level: the level that turns an enable on, or that mutes (otherwise enable is 1 and fault, warn and mute are 0). unchecked names the fields (i2c_addr, a control pin) not yet checked against the datasheet; pinmap still uses them but reports a codec_pins_unchecked finding.",
+  "comment": "Audio parts the ESP32 pin map recognises on a squeezelite-esp32 board, by part-number prefix. kind: dac (I2S out), amp, adc (I2S in), phy, display. model is squeezelite-esp32's dac_config model; i2c parts carry the 7-bit addresses their address pins can strap, indexed by the strap code (CAD1 CAD0 = 10 is the third) and the register writes squeezelite sends through dac_controlset (init, poweron, poweroff: [reg, val] pairs, decimal register numbers). A part whose sequence is not checked against its datasheet has verified false, and pinmap reports it as a finding rather than flashing an unchecked sequence as if it were known. active overrides a control pin's level: the level that turns an enable on, or that mutes (otherwise enable is 1 and fault, warn and mute are 0). inputs names an adc's analog mux input pins: each one wired on the board is a tap fwe_selftest's st tone can read the tone back on. unchecked names the fields (i2c_addr, a control pin, inputs) not yet checked against the datasheet; pinmap still uses them but reports a codec_pins_unchecked finding.",
   "parts": {
     "TAS5825M": {
       "kind": "amp", "bus": "i2s+i2c", "model": "I2S", "i2c_addr": [76, 77, 78, 79],
@@ -62,8 +62,9 @@
     },
     "PCM1863": {
       "kind": "adc", "bus": "i2s+i2c", "i2c_addr": [74, 75], "verified": true,
-      "source": "PCM1863 datasheet SLAS831: I2S ADC, I2C control; our line-in component owns its setup.",
-      "pins": {}
+      "source": "PCM1863 datasheet SLAS831: I2S ADC, I2C control; our line-in component owns its setup. Its analog mux picks one of four stereo inputs, VINL1-4 and VINR1-4; those pin names are from memory of the PCM186x pinout, not the datasheet.",
+      "pins": {}, "inputs": ["VINL1", "VINR1", "VINL2", "VINR2", "VINL3", "VINR3", "VINL4", "VINR4"],
+      "unchecked": ["inputs"]
     },
     "LAN8720": {
       "kind": "phy", "model": "lan8720", "verified": true,

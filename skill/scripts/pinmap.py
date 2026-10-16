@@ -505,7 +505,7 @@ def build_esp32(ws: Path, netfile: Path, nl: Netlist, mcu: str, part: str) -> di
             "netlist_sha256": hashlib.sha256(netfile.read_bytes()).hexdigest(),
             "mcu": {"ref": mcu, "part": part, "table": "esp32", "source": "ESP32 datasheet, IO_MUX"},
             "pins": sq["pins"], "power_pins": sq["power_pins"], "rails": rails, "analog": analog,
-            "parts": sq["parts"],
+            "parts": sq["parts"], "tone_taps": sq["tone_taps"],
             "squeezelite": sq["squeezelite"], "notes": sq["notes"], "findings": sq["findings"]}
 
 

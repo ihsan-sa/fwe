@@ -71,8 +71,10 @@ each keeps its status (open, done, failed or dropped) and the pull requests that
   commands, `st tone`'s ranges read from the component's header, the answer patterns, and `ready`, false while the
   component is only `core/`) and documents it in `manifest.md`. The dispatch/65 branch puts it in npie's ESP32
   bring-up plan: an `st:rails`, `st:pd` and `st:net` step once the section is `ready` (not `st tone`, whose taps the
-  manifest doesn't name), and triage reads an `ERR <reason>` or no answer on one. Left in item 2: `st tone`'s taps in
-  the manifest and plan, the handlers' JSON and the reason
+  manifest doesn't name), and triage reads an `ERR <reason>` or no answer on one. The dispatch/67 branch names
+  `st tone`'s taps: the PCM1863's mux inputs in `codecs.json` (unchecked, from memory), each one the netlist wires
+  kept as `tone_taps` in `pinmap.json` with the named net it reads, and listed under `st tone` in the manifest.
+  Left in item 2: an `st:tone` step in the plan, the handlers' JSON and the reason
   words checked against npie#19's contract, and the handlers and USB serial/TCP glue.
 
 ### Add the hi-fi sub crossover DSP and phone web app
